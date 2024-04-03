@@ -13,8 +13,8 @@ class Frontend : public ModuleBase {
     using Ptr = std::shared_ptr<Frontend>;
 
    public:
-    Frontend();
-    ~Frontend();
+    Frontend(const std::string& config_file_path, const std::string& prefix);
+    ~Frontend() = default;
 
     // 传入数据给前端
     void AddIMU(const IMU& imu_data);
