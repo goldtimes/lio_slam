@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 23:14:19
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-03 23:33:06
+ * @LastEditTime: 2024-04-04 11:21:24
  * @FilePath: /lio_ws/src/ieskf_slam/include/ieskf/ieskf.hh
  * @Description: 迭代卡尔曼滤波器算法
  *
@@ -38,11 +38,12 @@ class IESKF : public ModuleBase {
     };
 
    public:
+    using Ptr = std::shared_ptr<IESKF>;
     IESKF(const std::string& config_path, const std::string& prefix);
     ~IESKF() = default;
 
     // 预测
-    bool Predict(const IMU& imu, double dt);
+    bool Predict(IMU& imu, double dt);
     // 利用观测更新
     bool Update();
     const State18d GetState() const {
@@ -53,6 +54,12 @@ class IESKF : public ModuleBase {
     }
 
    private:
+    // 状态量
+    // [r,p,v,bg,ba,g]
     State18d state_;
+    // 协方差
+    Eigen::Matrix<double, 18, 18> P;
+    // 预测方程的系统噪声
+    Eigen::Matrix<double, 12, 12> Q;
 };
 }  // namespace IESKF_SLAM

@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 00:03:01
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-03 00:43:21
+ * @LastEditTime: 2024-04-05 00:23:46
  * @FilePath: /lio_ws/src/ieskf_slam/src/ros_wrapper/frontend_ros_wrapper.cc
  * @Description:
  *
@@ -47,11 +47,11 @@ FrontendRosWrapper::FrontendRosWrapper(ros::NodeHandle& nh) {
 void FrontendRosWrapper::run() {
     ros::Rate rate(500);
     while (ros::ok()) {
+        rate.sleep();
         ros::spinOnce();
         if (frontend_ptr_->track()) {
             publishMsg();
         }
-        rate.sleep();
     }
 }
 

@@ -2,8 +2,8 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 22:18:25
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-04 01:22:32
- * @FilePath: /lio_ws/src/ieskf_slam/src/frontend/frontend.cc
+ * @LastEditTime: 2024-04-05 00:44:31
+ * @FilePath: /lio_ws/src/ieskf_slam/src/modules/frontend/frontend.cc
  * @Description:
  *
  * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved.
@@ -15,6 +15,9 @@
 namespace IESKF_SLAM {
 Frontend::Frontend(const std::string& config_file_path, const std::string& prefix)
     : ModuleBase(config_file_path, prefix, "Frontend Modules") {
+    ieskf_ptr_ = std::make_shared<IESKF>(config_file_path, "ieskf");
+    map_ptr_ = std::make_shared<LocalMap>(config_file_path, "local_map");
+    propagate_ptr_ = std::make_shared<FrontBackPropagate>();
 }
 
 void Frontend::AddIMU(const IMU& imu) {
@@ -37,7 +40,6 @@ bool Frontend::SyncMeasureGroup(MeasureGroup& group) {
     group.cloud.cloud_ptr->clear();
     // 如果传感器的队列为空
     if (imu_queue_.empty() || clouds_queue_.empty()) {
-        ROS_ERROR("imu or cloud queue is empty");
         return false;
     }
     // 等待imu
@@ -47,12 +49,17 @@ bool Frontend::SyncMeasureGroup(MeasureGroup& group) {
     double cloud_start_time = clouds_queue_.front().time_stamp.sec();
     // 一帧雷达扫描的结束时间
     double cloud_end_time = clouds_queue_.front().cloud_ptr->points.back().offset_time / 1e9 + cloud_start_time;
+    // ROS_INFO("imu end time:{%f}, imu_start_time:{%f}, cloud_start_time:{%f}, cloud_end_time:{%f}", imu_end_time,
+    //          imu_start_time, cloud_start_time, cloud_end_time);
     // 如果imu队列中最晚的时间戳小于雷达点云扫描的结束时间，则无法同步
     if (imu_end_time < cloud_end_time) {
+        // ROS_ERROR("imu_end_time < cloud_end_time");
         return false;
     }
     if (cloud_end_time < imu_start_time) {
         clouds_queue_.pop_front();
+        // ROS_ERROR("cloud_end_time < imu_start_time");
+
         return false;
     }
     // 取出雷达数据
@@ -85,6 +92,7 @@ bool Frontend::InitState(MeasureGroup& group) {
     if (imu_inited_) {
         return true;
     }
+    std::cout << "imu_size:" << group.imus.size() << std::endl;
     for (size_t i = 0; i < group.imus.size(); ++i) {
         imu_count++;
         IESKF::State18d state = ieskf.GetState();
@@ -97,6 +105,7 @@ bool Frontend::InitState(MeasureGroup& group) {
         mean_acc /= (double)imu_count;
         state.bg /= (double)imu_count;
         imu_scale_ = GRAVITY / mean_acc.norm();
+        std::cout << "scale: " << imu_scale_ << std::endl;
         state.gravity = -mean_acc / mean_acc.norm() * GRAVITY;
         ieskf.SetState(state);
         imu_inited_ = true;
@@ -108,6 +117,21 @@ bool Frontend::InitState(MeasureGroup& group) {
  * @brief 根据pose找到对应时刻的点云,纯展示的过程
  */
 bool Frontend::track() {
+    MeasureGroup group;
+    // 时间同步
+    if (SyncMeasureGroup(group)) {
+        if (!imu_inited_) {
+            map_ptr_->reset();
+            map_ptr_->AddScan(group.cloud.cloud_ptr, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
+            InitState(group);
+            return false;
+        }
+        // imu 初始化成功
+        propagate_ptr_->propagate(group, ieskf_ptr_);
+        return true;
+    }
+    // ROS_ERROR("sync error");
+    return false;
     // 都为空
     // if (pose_queue_.empty() || clouds_queue_.empty()) {
     //     return false;

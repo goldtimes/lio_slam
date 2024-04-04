@@ -30,3 +30,27 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDEDIR}
 )
+
+
+SET(IESKF_SLAM_FILE 
+  src/modules/frontend/frontend.cc
+  src/ieskf/ieskf.cc
+  src/map/local_map.cc
+  src/modules/propagate.cc
+)
+
+SET(FRONTEDN_ROS_WRAPPER
+  src/ros_wrapper/frontend_ros_wrapper.cc
+)
+
+add_executable(ieskf_node 
+  src/app/ieskf_node.cc
+  ${IESKF_SLAM_FILE}
+  ${FRONTEDN_ROS_WRAPPER}
+)
+
+target_link_libraries( ieskf_node
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+  ${YAML_CPP_LIBRARIES}
+)
