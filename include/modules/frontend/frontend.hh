@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 22:18:25
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-04 13:00:27
+ * @LastEditTime: 2024-04-06 22:39:19
  * @FilePath: /lio_ws/src/ieskf_slam/include/modules/frontend/frontend.hh
  * @Description:
  *
@@ -42,6 +42,10 @@ class Frontend : public ModuleBase {
 
     const PCLPointCloud& getCurrentCloud() const {
         return current_pointcloud_;
+    }
+
+    const IESKF::State18d readState() const {
+        return ieskf_ptr_->GetState();
     }
 
    private:

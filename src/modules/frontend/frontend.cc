@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 22:18:25
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-05 00:44:31
+ * @LastEditTime: 2024-04-06 23:21:55
  * @FilePath: /lio_ws/src/ieskf_slam/src/modules/frontend/frontend.cc
  * @Description:
  *
@@ -92,7 +92,6 @@ bool Frontend::InitState(MeasureGroup& group) {
     if (imu_inited_) {
         return true;
     }
-    std::cout << "imu_size:" << group.imus.size() << std::endl;
     for (size_t i = 0; i < group.imus.size(); ++i) {
         imu_count++;
         IESKF::State18d state = ieskf.GetState();
@@ -105,7 +104,9 @@ bool Frontend::InitState(MeasureGroup& group) {
         mean_acc /= (double)imu_count;
         state.bg /= (double)imu_count;
         imu_scale_ = GRAVITY / mean_acc.norm();
-        std::cout << "scale: " << imu_scale_ << std::endl;
+        // std::cout << "mea_acc norm: " << mean_acc.norm() << std::endl;
+        propagate_ptr_->imu_scale = imu_scale_;
+        propagate_ptr_->last_imu = group.imus.back();
         state.gravity = -mean_acc / mean_acc.norm() * GRAVITY;
         ieskf.SetState(state);
         imu_inited_ = true;

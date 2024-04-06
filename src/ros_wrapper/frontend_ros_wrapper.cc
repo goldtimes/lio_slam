@@ -2,13 +2,15 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 00:03:01
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-05 00:23:46
+ * @LastEditTime: 2024-04-06 22:58:56
  * @FilePath: /lio_ws/src/ieskf_slam/src/ros_wrapper/frontend_ros_wrapper.cc
  * @Description:
  *
  * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved.
  */
 #include "ros_wrapper/frontend_ros_wrapper.hh"
+#include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Path.h>
 #include <pcl/common/transforms.h>
 #include "globaldefine.hh"
 
@@ -40,7 +42,7 @@ FrontendRosWrapper::FrontendRosWrapper(ros::NodeHandle& nh) {
         exit(100);
     }
     curr_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("curr_cloud", 100);
-
+    path_pub_ = nh.advertise<nav_msgs::Path>("path", 100);
     run();
 }
 
@@ -59,11 +61,21 @@ void FrontendRosWrapper::run() {
  * @brief 发布世界坐标系下的当前点云
  */
 void FrontendRosWrapper::publishMsg() {
-    auto pcl_currn_cloud = frontend_ptr_->getCurrentCloud();
-    sensor_msgs::PointCloud2 ros_cloud;
-    pcl::toROSMsg(pcl_currn_cloud, ros_cloud);
-    ros_cloud.header.frame_id = "map";
-    curr_cloud_pub_.publish(ros_cloud);
+    // auto pcl_currn_cloud = frontend_ptr_->getCurrentCloud();
+    // sensor_msgs::PointCloud2 ros_cloud;
+    // pcl::toROSMsg(pcl_currn_cloud, ros_cloud);
+    // ros_cloud.header.frame_id = "map";
+    // curr_cloud_pub_.publish(ros_cloud);
+    static nav_msgs::Path path;
+    IESKF::State18d state = frontend_ptr_->readState();
+    path.header.frame_id = "map";
+    geometry_msgs::PoseStamped pose;
+    pose.pose.position.x = state.position.x();
+    pose.pose.position.y = state.position.y();
+    pose.pose.position.z = state.position.z();
+    // ROS_INFO("x:%f,y:%f,z:%f", state.position.x(), state.position.y(), state.position.z());
+    path.poses.push_back(pose);
+    path_pub_.publish(path);
 }
 
 void FrontendRosWrapper::imu_callback(const sensor_msgs::ImuPtr& imu_msg) {

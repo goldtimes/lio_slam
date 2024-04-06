@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-02 23:35:37
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-03 00:25:31
+ * @LastEditTime: 2024-04-06 22:42:48
  * @FilePath: /lio_ws/src/ieskf_slam/include/ros_wrapper/frontend_ros_wrapper.hh
  * @Description: 前端的ros接口
  *
@@ -40,6 +40,7 @@ class FrontendRosWrapper {
     ros::Subscriber cloud_sub_;
     ros::Subscriber odom_sub_;
     ros::Publisher curr_cloud_pub_;
+    ros::Publisher path_pub_;
     // lidar_process
     std::shared_ptr<CommonLidarProcessInterface> lidar_process_ptr_;
     // 前端
