@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 23:14:19
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-04 11:21:24
+ * @LastEditTime: 2024-04-10 00:25:15
  * @FilePath: /lio_ws/src/ieskf_slam/include/ieskf/ieskf.hh
  * @Description: 迭代卡尔曼滤波器算法
  *
@@ -12,6 +12,7 @@
 #pragma once
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <functional>
 #include "modules/module_base.hh"
 #include "type/imu.hh"
 
@@ -53,6 +54,15 @@ class IESKF : public ModuleBase {
         state_ = state_in;
     }
 
+    void SetIterTimes(const int times) {
+        iter_times = times;
+    }
+
+    std::function<bool(const State18d&, Eigen::MatrixXd& z, Eigen::MatrixXd& H_k)> caculate_z_h;
+
+   private:
+    Eigen::Matrix<double, 18, 1> GetErrorState(const State18d& s1, const State18d& s2);
+
    private:
     // 状态量
     // [r,p,v,bg,ba,g]
@@ -61,5 +71,6 @@ class IESKF : public ModuleBase {
     Eigen::Matrix<double, 18, 18> P;
     // 预测方程的系统噪声
     Eigen::Matrix<double, 12, 12> Q;
+    int iter_times = 4;
 };
 }  // namespace IESKF_SLAM

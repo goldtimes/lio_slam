@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 23:52:03
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-06 23:22:13
+ * @LastEditTime: 2024-04-10 00:14:51
  * @FilePath: /lio_ws/src/ieskf_slam/src/ieskf/ieskf.cc
  * @Description:
  *
@@ -71,8 +71,75 @@ bool IESKF::Predict(IMU& imu, double dt) {
     return true;
 }
 
+// lidar观测的更新
 bool IESKF::Update() {
-    return true;
+    static int cnt = 0;
+    auto state_temp = state_;
+    auto state_last = state_;
+    // 开始迭代ESKF
+    Eigen::MatrixXd K;
+    Eigen::MatrixXd H_K;
+    Eigen::Matrix<double, 18, 18> P_in_update;
+    bool converge = true;
+    for (int iter = 0; iter < iter_times; ++iter) {
+        // 计算J
+        // 获取误差状态
+        Eigen::Matrix<double, 18, 1> error_state = GetErrorState(state_temp, state_);
+        // Jacobian矩阵 18x18
+        Eigen::Matrix<double, 18, 18> J_inv;
+        J_inv.setIdentity();
+        J_inv.block<3, 3>(0, 0) = A_T(error_state.block<3, 1>(0, 0));
+        // 更新P, 第一次更新这里几乎为0
+        P_in_update = J_inv * P * J_inv.transpose();
+        Eigen::MatrixXd z_k;
+        Eigen::MatrixXd R_inv;
+        // 调用接口计算Z，H
+        caculate_z_h(state_temp, z_k, H_K);
+        Eigen::MatrixXd H_K_T = H_K.transpose();
+        // R噪声写死
+        K = (H_K_T * H_K + (P_in_update / 0.001).inverse()).inverse() * H_K_T;
+        // 计算增量
+        Eigen::MatrixXd left = -1 * K * z_k;
+        Eigen::MatrixXd right = -1 * (Eigen::Matrix<double, 18, 18>::Identity() - K * H_K) * J_inv * error_state;
+        Eigen::MatrixXd update_x = left + right;
+        // 收敛判断
+        converge = true;
+        for (int i = 0; i < 18; ++i) {
+            // 有更新量，退出判断继续迭代
+            if (update_x(i, 0) > 0.001) {
+                converge = false;
+                break;
+            }
+        }
+        // 更新state_temp;
+        state_temp.rotation = state_temp.rotation.toRotationMatrix() * so3Exp(update_x.block<3, 1>(0, 0));
+        state_temp.rotation.normalize();  //四元素归一化
+        state_temp.position = state_temp.position + update_x.block<3, 1>(3, 0);
+        state_temp.velocity = state_temp.velocity + update_x.block<3, 1>(6, 0);
+        state_temp.bg = state_temp.bg + update_x.block<3, 1>(9, 0);
+        state_temp.ba = state_temp.ba + update_x.block<3, 1>(12, 0);
+        state_temp.gravity = state_temp.gravity + update_x.block<3, 1>(15, 0);
+        if (converge) {
+            break;
+        }
+    }
+    cnt++;
+    // 更新state
+    state_ = state_temp;
+    // 更新P
+    P = (Eigen::Matrix<double, 18, 18>::Identity() - K * H_K) * P_in_update;
+    return converge;
+}
+
+Eigen::Matrix<double, 18, 1> IESKF::GetErrorState(const State18d& s1, const State18d& s2) {
+    Eigen::Matrix<double, 18, 1> error_state = Eigen::Matrix<double, 18, 1>::Zero();
+    error_state.block<3, 1>(0, 0) = SO3Log(s2.rotation.toRotationMatrix().transpose() * s1.rotation.toRotationMatrix());
+    error_state.block<3, 1>(3, 0) = s1.position - s2.position;
+    error_state.block<3, 1>(6, 0) = s1.velocity - s2.velocity;
+    error_state.block<3, 1>(9, 0) = s1.bg - s2.bg;
+    error_state.block<3, 1>(12, 0) = s1.ba - s2.ba;
+    error_state.block<3, 1>(15, 0) = s1.gravity - s2.gravity;
+    return error_state;
 }
 
 }  // namespace IESKF_SLAM
