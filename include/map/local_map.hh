@@ -14,6 +14,7 @@
 #include <string>
 #include "modules/module_base.hh"
 #include "type/pointcloud.hh"
+#include "utils/lidar_utils.hh"
 
 namespace IESKF_SLAM {
 class LocalMap : public ModuleBase {
@@ -27,7 +28,13 @@ class LocalMap : public ModuleBase {
         return local_map_ptr_;
     }
 
+    KDTreeConstPtr GetKDTree() {
+        return kdtree_ptr_;
+    }
+
    private:
     PCLPointCloudPtr local_map_ptr_;
+    KDTreePtr kdtree_ptr_;
+    VoxelFilter filter_;
 };
 }  // namespace IESKF_SLAM

@@ -15,9 +15,39 @@
 namespace IESKF_SLAM {
 Frontend::Frontend(const std::string& config_file_path, const std::string& prefix)
     : ModuleBase(config_file_path, prefix, "Frontend Modules") {
+    // 读取雷达和imu外参
+    float leaf_size;
+    readParam("filter_leaf_size", leaf_size, 0.5f);
+    voxel_filter_.setLeafSize(leaf_size, leaf_size, leaf_size);
+    std::vector<double> extrinsic_r_params;
+    std::vector<double> extrinsic_t_params;
+    readParam("extrinsic_r", extrinsic_r_params, std::vector<double>());
+    extrinsic_r.setIdentity();
+    extrinsic_t.setZero();
+    if (extrinsic_r_params.size() == 9) {
+        Eigen::Matrix3d r;
+        r << extrinsic_r_params[0], extrinsic_r_params[1], extrinsic_r_params[2], extrinsic_r_params[3],
+            extrinsic_r_params[4], extrinsic_r_params[5], extrinsic_r_params[6], extrinsic_r_params[7],
+            extrinsic_r_params[8];
+        extrinsic_r = r;
+    } else if (extrinsic_r_params.size() == 4) {
+        extrinsic_r.x() = extrinsic_r_params[0];
+        extrinsic_r.y() = extrinsic_r_params[1];
+        extrinsic_r.z() = extrinsic_r_params[2];
+        extrinsic_r.w() = extrinsic_r_params[3];
+    }
+
+    readParam("extrinsic_t", extrinsic_t_params, std::vector<double>());
+    if (extrinsic_r_params.size() == 3) {
+        extrinsic_t << extrinsic_t_params[0], extrinsic_t_params[1], extrinsic_t_params[2];
+    }
+
     ieskf_ptr_ = std::make_shared<IESKF>(config_file_path, "ieskf");
     map_ptr_ = std::make_shared<LocalMap>(config_file_path, "local_map");
     propagate_ptr_ = std::make_shared<FrontBackPropagate>();
+    lio_zh_model_ptr_ = std::make_shared<LIOZHModel>();
+    // to do将 lio的caculate函数给到ieskf
+    lio_zh_model_ptr_->prepare(map_ptr_->GetKDTree(), filter_point_cloud_ptr, map_ptr_->GetLocalMap());
 }
 
 void Frontend::AddIMU(const IMU& imu) {
@@ -128,7 +158,15 @@ bool Frontend::track() {
             return false;
         }
         // imu 初始化成功
+        // imu向前传播
         propagate_ptr_->propagate(group, ieskf_ptr_);
+        voxel_filter_.setInputCloud(group.cloud.cloud_ptr);
+        voxel_filter_.filter(*filter_point_cloud_ptr);
+        // 点云的紧耦合更新
+        ieskf_ptr_->Update();
+        IESKF::State18d x = ieskf_ptr_->GetState();
+        // 更新submap
+        map_ptr_->AddScan(filter_point_cloud_ptr, x.rotation, x.position);
         return true;
     }
     // ROS_ERROR("sync error");

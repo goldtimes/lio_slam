@@ -16,6 +16,8 @@ namespace IESKF_SLAM {
 LocalMap::LocalMap(const std::string& config_path, const std::string& prefix)
     : ModuleBase(config_path, prefix, "LocalMapManager") {
     local_map_ptr_ = pcl::make_shared<PCLPointCloud>();
+    kdtree_ptr_ = pcl::make_shared<KDTree>();
+    filter_.setLeafSize(0.5, 0.5, 0.5);
 }
 
 void LocalMap::AddScan(PCLPointCloudPtr curr_scan_ptr, const Eigen::Quaterniond& rotation,
@@ -23,6 +25,10 @@ void LocalMap::AddScan(PCLPointCloudPtr curr_scan_ptr, const Eigen::Quaterniond&
     PCLPointCloud scan;
     pcl::transformPointCloud(*curr_scan_ptr, scan, compositeTransform(rotation, positon).cast<float>());
     *local_map_ptr_ += scan;
+
+    filter_.setInputCloud(local_map_ptr_);
+    filter_.filter(*local_map_ptr_);
+    kdtree_ptr_->setInputCloud(local_map_ptr_);
 }
 
 void LocalMap::reset() {
