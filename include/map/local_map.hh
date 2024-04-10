@@ -36,5 +36,7 @@ class LocalMap : public ModuleBase {
     PCLPointCloudPtr local_map_ptr_;
     KDTreePtr kdtree_ptr_;
     VoxelFilter filter_;
+    float map_side_length_2_;
+    float map_resolution_;
 };
 }  // namespace IESKF_SLAM
