@@ -5,7 +5,7 @@ SET(CMAKE_CXX_FLAGS "-std=c++17 -O3")
 add_compile_options(-std=c++17)
 
 
-add_definitions(-DPROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+add_definitions(-DPROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src/")
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(PCL REQUIRED)
 # YAML CPP
 find_package(PkgConfig REQUIRED)
+find_package(Ceres REQUIRED)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 
 catkin_package(
@@ -29,6 +30,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDEDIR}
+  src/ceres_pose_graph
 )
 
 
@@ -53,4 +55,12 @@ target_link_libraries( ieskf_node
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
+)
+
+add_executable(pose_graph_3d 
+  src/ceres_pose_graph/pose_graph_3d.cc)
+
+target_link_libraries(pose_graph_3d 
+  ${CERES_LIBRARIES}
+  ${catkin_LIBRARIES}
 )

@@ -1,22 +1,35 @@
+/*
+ * @Author: lihang 1019825699@qq.com
+ * @Date: 2024-04-11 22:56:53
+ * @LastEditors: lihang 1019825699@qq.com
+ * @LastEditTime: 2024-04-12 01:01:44
+ * @FilePath: /lio_ws/src/ieskf_slam/src/ceres_pose_graph/read_g2o_data.hpp
+ * @Description:
+ *
+ * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved.
+ */
 /**
  * @brief 读取g2o中的顶点和边信息
  */
 #pragma once
 #include <fstream>
+#include <vector>
 #include "types.hh"
 #ifndef PROJECT_DIR
 #define PROJECT_DIR " "
+#endif
 
 const std::string WORK_SPACE_DIR = PROJECT_DIR;
 static bool readG2o(const std::string& file_path, std::vector<Pose3D>& vertexs, std::vector<BinaryEdge>& edges) {
     vertexs.clear();
     edges.clear();
-
+    std::cout << "file:" << file_path << std::endl;
     std::fstream g2o_file(file_path, std::ios::in);
     if (!g2o_file) {
+        std::cout << "open file error" << std::endl;
         return false;
     }
-    std::string data_type;
+    // std::stringstream data_type;
     while (g2o_file.good()) {
         g2o_file >> data_type;
         // 读取顶点
@@ -44,9 +57,9 @@ static bool readG2o(const std::string& file_path, std::vector<Pose3D>& vertexs, 
             }
             edges.push_back(edge);
         } else {
+            std::cout << "return error " << std::endl;
             return false;
         }
     }
     return true;
 }
-#endif
