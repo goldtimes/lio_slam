@@ -1,3 +1,13 @@
+'''
+Author: lihang 1019825699@qq.com
+Date: 2024-04-13 00:32:36
+LastEditors: lihang 1019825699@qq.com
+LastEditTime: 2024-04-13 01:28:38
+FilePath: /lio_ws/src/ieskf_slam/src/ceres_pose_graph/plot_result.py
+Description: 
+
+Copyright (c) 2024 by ${git_name_email}, All Rights Reserved. 
+'''
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plot
 import numpy
@@ -26,7 +36,7 @@ def set_axes_equal(axes):
 parser = OptionParser()
 parser.add_option("--initial_poses", dest="initial_poses",
                   default="", help="The filename that contains the original poses.")
-parser.add_option("q", dest="optimized_poses",
+parser.add_option("--optimized_poses", dest="optimized_poses",
                   default="", help="The filename that contains the optimized poses.")
 parser.add_option("-e", "--axes_equal", action="store_true", dest="axes_equal",
                   default="", help="Make the plot axes equal.")
