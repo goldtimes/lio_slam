@@ -19,7 +19,7 @@ void outputPose(const std::string& path) {
 
 int main(int argc, char** argv) {
     std::cout << "WORK DIR: " << WORK_SPACE_DIR << std::endl;
-    if (readG2o(WORK_SPACE_DIR + "ceres_pose_graph/" + "sphere_data.g2o.txt", vertexs, edges)) {
+    if (readG2O(WORK_SPACE_DIR + "ceres_pose_graph/" + "sphere_data.g2o.txt", vertexs, edges)) {
         std::cout << "READ G2O FILE COMPLETED!!" << std::endl;
         std::cout << "Vertexs Size: " << vertexs.size() << std::endl;
         std::cout << "Constraints Size: " << edges.size() << std::endl;
@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         // 求解
         ceres::Solve(options, problem, &summary);
         // 输出求解结果
-        std::cout << summary.FullReport() << std::endl;
+        // std::cout << summary.FullReport() << std::endl;
         //* 保存结果
         outputPose(WORK_SPACE_DIR + "ceres_pose_graph/" + "out_pose.txt");
     }

@@ -32,8 +32,8 @@ class PoseGraph3dErrorTerm {
         Eigen::Quaternion<T> delta_q = quat_constraint.cast<T>() * q_ab_relative.conjugate();
         Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
         residuals.template block<3, 1>(0, 0) = p_ab_inverse - position_constraint.cast<T>();
-        residuals.template block<3, 1>(0, 0) = T(2.0) * delta_q.vec();
-        // sqrt_information.cast<T>();
+        residuals.template block<3, 1>(3, 0) = T(2.0) * delta_q.vec();
+        sqrt_information.cast<T>();
         residuals = sqrt_information.cast<T>() * residuals;
         return true;
     }
