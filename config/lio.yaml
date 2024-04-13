@@ -5,10 +5,9 @@ ros:
   lidar_type: 0 # 0)avia
 
 front_end:
-  extrin_r: [1,0,0,
-            0,1,0,
-            0,0,1]
-  extrin_t: [0.4165,0.2326,-0.2840]
+  extrinsic_r: [1,0,0,0,1,0,0,0,1]
+  extrinsic_t: [0.4165,0.2326,-0.2840]
+
 ieskf:
   cov_gyroscope: 0.1
   cov_acceleration: 0.1

@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 22:18:25
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-10 00:34:35
+ * @LastEditTime: 2024-04-13 13:25:52
  * @FilePath: /lio_ws/src/ieskf_slam/src/modules/frontend/frontend.cc
  * @Description:
  *
@@ -14,7 +14,7 @@
 
 namespace IESKF_SLAM {
 Frontend::Frontend(const std::string& config_file_path, const std::string& prefix)
-    : ModuleBase(config_file_path, prefix, "Frontend Modules") {
+    : ModuleBase(config_file_path, prefix, "front_end") {
     // 读取雷达和imu外参
     float leaf_size;
     readParam("filter_leaf_size", leaf_size, 0.5f);
@@ -47,7 +47,7 @@ Frontend::Frontend(const std::string& config_file_path, const std::string& prefi
     propagate_ptr_ = std::make_shared<FrontBackPropagate>();
     lio_zh_model_ptr_ = std::make_shared<LIOZHModel>();
     // 设置ieskf_ptr的回调函数来计算z,h矩阵
-    ieskf_ptr_->caculate_z_h = std::bind(LIOZHModel::calculate, lio_zh_model_ptr_, std::placeholders::_1,
+    ieskf_ptr_->caculate_z_h = std::bind(&LIOZHModel::calculate, lio_zh_model_ptr_, std::placeholders::_1,
                                          std::placeholders::_2, std::placeholders::_3);
     lio_zh_model_ptr_->prepare(map_ptr_->GetKDTree(), filter_point_cloud_ptr, map_ptr_->GetLocalMap());
 }

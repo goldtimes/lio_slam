@@ -1,3 +1,13 @@
+/*
+ * @Author: lihang 1019825699@qq.com
+ * @Date: 2024-04-04 11:23:57
+ * @LastEditors: lihang 1019825699@qq.com
+ * @LastEditTime: 2024-04-13 13:14:08
+ * @FilePath: /lio_ws/src/ieskf_slam/include/math/SO3.hpp
+ * @Description:
+ *
+ * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved.
+ */
 #pragma once
 #include <Eigen/Dense>
 
@@ -14,7 +24,7 @@ inline Eigen::Matrix3d skew(const Eigen::Vector3d& so3) {
     return so3_skew_sym;
 }
 
-Eigen::Matrix3d so3Exp(const Eigen::Vector3d& so3) {
+static Eigen::Matrix3d so3Exp(const Eigen::Vector3d& so3) {
     Eigen::Matrix3d SO3;
     double so3_norm = so3.norm();
     if (so3_norm <= 0.0000001) {
@@ -28,13 +38,13 @@ Eigen::Matrix3d so3Exp(const Eigen::Vector3d& so3) {
     return SO3;
 }
 // 感觉有问题
-Eigen::Vector3d SO3Log(const Eigen::Matrix3d& SO3) {
+static Eigen::Vector3d SO3Log(const Eigen::Matrix3d& SO3) {
     double theta = (SO3.trace() > 3 - 1e6) ? 0 : acos((SO3.trace() - 1) / 2);
     Eigen::Vector3d so3(SO3(2, 1) - SO3(1, 2), SO3(0, 2) - SO3(2, 0), SO3(1, 0) - SO3(0, 1));
     return fabs(theta) < 0.0001 ? (0.5 * so3) : (0.5 * theta / sin(theta) * so3);
 }
 
-Eigen::Matrix3d A_T(const Eigen::Vector3d& v) {
+static Eigen::Matrix3d A_T(const Eigen::Vector3d& v) {
     Eigen::Matrix3d res;
     double squartNorm = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
     double norm = std::sqrt(squartNorm);

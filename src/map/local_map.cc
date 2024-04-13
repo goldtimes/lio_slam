@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 23:52:21
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-04 00:29:15
+ * @LastEditTime: 2024-04-13 13:36:44
  * @FilePath: /lio_ws/src/ieskf_slam/src/map/local_map.cc
  * @Description:
  *
@@ -13,8 +13,7 @@
 #include "math/math.hpp"
 
 namespace IESKF_SLAM {
-LocalMap::LocalMap(const std::string& config_path, const std::string& prefix)
-    : ModuleBase(config_path, prefix, "LocalMapManager") {
+LocalMap::LocalMap(const std::string& config_path, const std::string& prefix) : ModuleBase(config_path, prefix) {
     local_map_ptr_ = pcl::make_shared<PCLPointCloud>();
     kdtree_ptr_ = pcl::make_shared<KDTree>();
     filter_.setLeafSize(0.5, 0.5, 0.5);

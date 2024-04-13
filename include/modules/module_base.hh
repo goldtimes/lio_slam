@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-01 00:30:12
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-02 00:00:00
+ * @LastEditTime: 2024-04-13 13:30:45
  * @FilePath: /lio_ws/src/ieskf_slam/include/modules/module_base.hh
  * @Description: 几乎所有的模块都需要通过配置文件来修改参数，所以定义一个基类
  *
@@ -25,9 +25,10 @@ class ModuleBase {
         if (config_path != "") {
             try {
                 // LoadFile 返回一个node
+                std::cout << "config_path: " << config_path << std::endl;
                 config_node_ = YAML::LoadFile(config_path);
             } catch (YAML::Exception& e) {
-                std::cout << e.what() << std::endl;
+                std::cerr << "module_name:" << module_name << ",get error msg:" << e.what() << std::endl;
             }
             if (prefix != "" && config_node_[prefix]) {
                 config_node_ = config_node_[prefix];

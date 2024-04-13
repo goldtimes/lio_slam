@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 23:52:03
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-10 00:14:51
+ * @LastEditTime: 2024-04-13 13:36:31
  * @FilePath: /lio_ws/src/ieskf_slam/src/ieskf/ieskf.cc
  * @Description:
  *
@@ -12,7 +12,7 @@
 #include "math/SO3.hpp"
 
 namespace IESKF_SLAM {
-IESKF::IESKF(const std::string& config_path, const std::string& prefix) : ModuleBase(config_path, prefix, "IESKF") {
+IESKF::IESKF(const std::string& config_path, const std::string& prefix) : ModuleBase(config_path, prefix) {
     // 初始化协方差
     P.setIdentity();
     P(9, 9) = P(10, 10) = P(11, 11) = 0.0001;

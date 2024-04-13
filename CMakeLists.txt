@@ -5,7 +5,7 @@ SET(CMAKE_CXX_FLAGS "-std=c++17 -O3")
 add_compile_options(-std=c++17)
 
 
-add_definitions(-DPROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src/")
+add_definitions(-DPROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy

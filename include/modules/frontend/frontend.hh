@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 22:18:25
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-06 22:39:19
+ * @LastEditTime: 2024-04-13 13:11:47
  * @FilePath: /lio_ws/src/ieskf_slam/include/modules/frontend/frontend.hh
  * @Description:
  *
@@ -62,7 +62,7 @@ class Frontend : public ModuleBase {
     VoxelFilter voxel_filter_;
 
     // 外参矩阵
-    Eigen::Matrix3d extrinsic_r;
+    Eigen::Quaterniond extrinsic_r;
     Eigen::Vector3d extrinsic_t;
 
     // imu inited
