@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-01 00:24:30
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-09 00:39:21
+ * @LastEditTime: 2024-04-13 16:09:11
  * @FilePath: /lio_ws/src/ieskf_slam/include/utils/lidar_utils.hh
  * @Description: pcl的一些工具类
  *
@@ -42,6 +42,7 @@ static bool FitPlane(const std::vector<PointType> points, Eigen::Vector4d& plane
     Eigen::VectorXd B;
     int points_num = points.size();
     A.resize(points_num, 3);
+    B.resize(points_num);
     B.setOnes();
     B = -1 * B;
     for (int i = 0; i < points_num; ++i) {

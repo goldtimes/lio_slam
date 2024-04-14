@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-08 23:40:55
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-13 13:14:26
+ * @LastEditTime: 2024-04-13 16:27:57
  * @FilePath: /lio_ws/src/ieskf_slam/include/modules/frontend/lio_zh_model.hh
  * @Description:
  * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved.
@@ -46,7 +46,7 @@ class LIOZHModel {
         std::vector<match_info> match_real;
 
         int valid_points_num = 0;
-// clang-format off
+        // clang-format off
         #ifdef MP_EN;
             omp_set_num_threads(4);
             #pragma omp parallel for
@@ -61,7 +61,7 @@ class LIOZHModel {
             std::vector<float> dist;
             global_map_kdtree_ptr->nearestKSearch(point_world, NEAR_POINTS_NUM, indexs, dist);
             // 没有找到5个点，或者5个点最远的距离大于1m,放弃该点
-            if (indexs.size() < 5 || dist[indexs.size() - 1] > 1.0) {
+            if (indexs.size() < 5 || dist[indexs.size() - 1] > 5.0) {
                 continue;
             }
             // 平面拟合
@@ -83,14 +83,14 @@ class LIOZHModel {
                 if (s > 0.9) {
                     valid_points_num++;
                     effect_points[i] = true;
-                    matchs.push_back(match_plane);
+                    matchs[i] = (match_plane);
                 }
             }
         }
         for (size_t i = 0; i < current_scan_ptr->size(); i++) {
             if (effect_points[i]) match_real.push_back(matchs[i]);
         }
-        valid_points_num = effect_points.size();
+        valid_points_num = match_real.size();
         H = Eigen::MatrixXd::Zero(valid_points_num, 18);
         Z.resize(valid_points_num, 1);
         for (int i = 0; i < valid_points_num; ++i) {

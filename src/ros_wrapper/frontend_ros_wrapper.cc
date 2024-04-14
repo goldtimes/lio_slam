@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2024-04-03 00:03:01
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2024-04-13 13:33:01
+ * @LastEditTime: 2024-04-13 16:21:43
  * @FilePath: /lio_ws/src/ieskf_slam/src/ros_wrapper/frontend_ros_wrapper.cc
  * @Description:
  *
@@ -43,6 +43,7 @@ FrontendRosWrapper::FrontendRosWrapper(ros::NodeHandle& nh) {
     }
     curr_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("curr_cloud", 100);
     path_pub_ = nh.advertise<nav_msgs::Path>("path", 100);
+    local_map_pub = nh.advertise<sensor_msgs::PointCloud2>("local_map", 100);
     run();
 }
 
@@ -66,6 +67,7 @@ void FrontendRosWrapper::publishMsg() {
     // pcl::toROSMsg(pcl_currn_cloud, ros_cloud);
     // ros_cloud.header.frame_id = "map";
     // curr_cloud_pub_.publish(ros_cloud);
+    // 发布里程计
     static nav_msgs::Path path;
     IESKF::State18d state = frontend_ptr_->readState();
     path.header.frame_id = "map";
@@ -76,6 +78,19 @@ void FrontendRosWrapper::publishMsg() {
     // ROS_INFO("x:%f,y:%f,z:%f", state.position.x(), state.position.y(), state.position.z());
     path.poses.push_back(pose);
     path_pub_.publish(path);
+    // 发布当前点云
+    PCLPointCloud cloud = frontend_ptr_->getCurrentCloud();
+    pcl::transformPointCloud(cloud, cloud, compositeTransform(state.rotation, state.position).cast<float>());
+    // auto cloud =front_end_ptr->readCurrentPointCloud();
+    sensor_msgs::PointCloud2 msg;
+    pcl::toROSMsg(cloud, msg);
+    msg.header.frame_id = "map";
+    curr_cloud_pub_.publish(msg);
+
+    cloud = frontend_ptr_->readCurrentLocalMap();
+    pcl::toROSMsg(cloud, msg);
+    msg.header.frame_id = "map";
+    local_map_pub.publish(msg);
 }
 
 void FrontendRosWrapper::imu_callback(const sensor_msgs::ImuPtr& imu_msg) {

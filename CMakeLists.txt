@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
 )
+set(CMAKE_BUILD_TYPE Release)
 
 find_package(PCL REQUIRED)
 # YAML CPP
