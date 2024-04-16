@@ -1,3 +1,13 @@
+/*
+ * @Author: lihang 1019825699@qq.com
+ * @Date: 2024-04-16 23:10:10
+ * @LastEditors: lihang 1019825699@qq.com
+ * @LastEditTime: 2024-04-16 23:18:30
+ * @FilePath: /lio_ws/src/ieskf_slam/src/lidar_process/lidar_process.hh
+ * @Description:
+ *
+ * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved.
+ */
 #pragma once
 #include <livox_ros_driver/CustomMsg.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -33,8 +43,8 @@ class LidarProcess {
         return timespan_;
     }
 
-    void Process(const livox_ros_driver::CustomMsg::ConstPtr& msg);
-    void Process(const sensor_msgs::PointCloud2::ConstPtr& msg);
+    void Process(const livox_ros_driver::CustomMsg::ConstPtr& msg, std::vector<point3D>& pcl_out);
+    void Process(const sensor_msgs::PointCloud2::ConstPtr& msg, std::vector<point3D>& pcl_out);
 
    private:
     void AviaHandler(const livox_ros_driver::CustomMsg::ConstPtr& msg);
