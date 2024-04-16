@@ -74,6 +74,22 @@ inline Vec3d ToVec3d(const FullPointType& pt) {
     return pt.getArray3fMap().cast<double>();
 }
 
+struct point3D {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    Eigen::Vector3d raw_point;  //  raw point
+    Eigen::Vector3d point;      //  global frame
+
+    double intensity;            //   intensity
+    double alpha_time = 0.0;     //  reference to last point of current frame [0,1]
+    double relative_time = 0.0;  //  feference to current frame
+    double timespan;             //   total time of current frame
+    double timestamp = 0.0;      //   global timestamp
+    int ring;                    //   ring
+
+    point3D() = default;
+};
+
 }  // namespace ctlio::slam
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(ctlio::slam::FullPointType,
