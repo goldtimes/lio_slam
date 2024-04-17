@@ -35,7 +35,8 @@ class Timer {
         auto start_time = std::chrono::steady_clock::now();
         std::forward<F>(func)();
         auto end_time = std::chrono::steady_clock::now();
-        auto time_used = std::chrono::duration_cast<std::chrono::duration<doube>>(end_time - start_time).count() * 1000;
+        auto time_used =
+            std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time).count() * 1000;
         if (records_.find(func_name) != records_.end()) {
             records_[func_name].time_usage_in_ms_.emplace_back(time_used);
         } else {

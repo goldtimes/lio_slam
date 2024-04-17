@@ -12,7 +12,7 @@
 #include <livox_ros_driver/CustomMsg.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <yaml-cpp/yaml.h>
-#include "common/common_headers.h"
+#include "common/common_headers.hh"
 #include "sensors/point_types.hh"
 
 namespace ctlio::slam {

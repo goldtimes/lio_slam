@@ -37,7 +37,7 @@ catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES ieskf_slam
   CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs
-  DEPENDS EIGEN3 PCL Ceres
+  # DEPENDS EIGEN3 PCL Ceres
 )
 
 include_directories(
@@ -48,10 +48,25 @@ include_directories(
   # src/ceres_pose_graph
 )
 
+include(cmake/packages.cmake)
+
 include_directories(
   include 
 )
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
+
+add_library(${PROJECT_NAME}.common
+  src/common/timer.cc)
+
+target_link_libraries(${PROJECT_NAME}.common
+)
+
+add_library(${PROJECT_NAME}.lidarProcess
+  src/lidar_process/lidar_process.cc)
+
+target_link_libraries(${PROJECT_NAME}.lidarProcess
+  ${third_party_libs}
+)
 
