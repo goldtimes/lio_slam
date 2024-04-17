@@ -30,7 +30,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(PCL REQUIRED)
 # YAML CPP
 find_package(PkgConfig REQUIRED)
-find_package(Ceres REQUIRED)
+# find_package(Ceres REQUIRED)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 
 catkin_package(
@@ -57,16 +57,33 @@ include_directories(
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
-add_library(${PROJECT_NAME}.common
-  src/common/timer.cc)
+# add_library(${PROJECT_NAME}.common
+#   src/common/timer.cc)
 
-target_link_libraries(${PROJECT_NAME}.common
-)
+# target_link_libraries(${PROJECT_NAME}.common
+# )
 
-add_library(${PROJECT_NAME}.lidarProcess
+# add_library(${PROJECT_NAME}.lidarProcess
+#   src/lidar_process/lidar_process.cc)
+
+# target_link_libraries(${PROJECT_NAME}.lidarProcess
+#   ${third_party_libs}
+# )
+set(ctlio_source_file
+  src/common/timer.cc
   src/lidar_process/lidar_process.cc)
 
-target_link_libraries(${PROJECT_NAME}.lidarProcess
-  ${third_party_libs}
+add_library(ctlio_lib ${ctlio_source_file})
+  
+target_link_libraries( ctlio_lib
+    ${third_party_libs}
+  )
+
+add_executable(
+  lidar_process_test
+  test/lidar_process_test.cc)
+
+target_link_libraries(lidar_process_test
+  ctlio_lib
 )
 

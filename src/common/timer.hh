@@ -1,3 +1,13 @@
+/*
+ * @Author: lihang 1019825699@qq.com
+ * @Date: 2024-04-17 23:02:39
+ * @LastEditors: lihang 1019825699@qq.com
+ * @LastEditTime: 2024-04-18 00:08:08
+ * @FilePath: /lio_ws/src/ieskf_slam/src/common/timer.hh
+ * @Description:
+ *
+ * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved.
+ */
 #pragma once
 #include <chrono>
 #include <map>
@@ -40,7 +50,7 @@ class Timer {
         if (records_.find(func_name) != records_.end()) {
             records_[func_name].time_usage_in_ms_.emplace_back(time_used);
         } else {
-            records_.insert({func, TimerRecord(func, time_used)});
+            records_.insert({func_name, TimerRecord(func_name, time_used)});
         }
     }
 

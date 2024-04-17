@@ -1,0 +1,8 @@
+lidar_process:
+  lidar_type: 4 #robosense
+  point_filter_num: 1
+  blind: 0.1
+common:
+  lidar_topic: rslidar_points
+  imu_topic: imu
+  encoder_topic: odom

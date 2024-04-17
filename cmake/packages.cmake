@@ -60,7 +60,8 @@ set(third_party_libs
     ${OpenCV_LIBS}
     ${PCL_LIBRARIES}
     ${CERES_LIBRARIES}
-    glog gflags
+    glog 
+    gflags
     ${yaml-cpp_LIBRARIES}
     yaml-cpp
 )

@@ -1,3 +1,13 @@
+/*
+ * @Author: lihang 1019825699@qq.com
+ * @Date: 2024-04-16 23:10:10
+ * @LastEditors: lihang 1019825699@qq.com
+ * @LastEditTime: 2024-04-17 23:54:56
+ * @FilePath: /lio_ws/src/ieskf_slam/src/tools/lidar_utils.hpp
+ * @Description:
+ *
+ * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved.
+ */
 #pragma once
 
 #include <pcl/filters/voxel_grid.h>
@@ -22,7 +32,7 @@ FullCloudPtr ConvertVecs3DtoFullCloud(const std::vector<point3D>& input) {
 /**
  * @brief 将全量点云转换成xyzi点云
  */
-template <typename PointT = FullPointType>
+template <typename PointT = PointType>
 CloudPtr ConvertToCloud(typename pcl::PointCloud<PointT>::Ptr input) {
     CloudPtr cloud(new PointCloudType());
     for (auto& pt : input->points) {
