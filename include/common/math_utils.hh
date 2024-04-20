@@ -6,6 +6,10 @@
 
 namespace ctlio::slam::math {
 
+constexpr double kDEG2RAD = M_PI / 180.0;  // deg->rad
+constexpr double kRAD2DEG = 180.0 / M_PI;
+constexpr size_t kINVALID_ID = std::numeric_limits<size_t>::max();
+
 /**
  * @brief 计算一个容器中的均值和对角形式的协方差
  * @param C 容器类型
