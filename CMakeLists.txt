@@ -87,3 +87,13 @@ target_link_libraries(lidar_process_test
   ctlio_lib
 )
 
+add_executable(
+  static_imu_init_test
+  test/static_imu_test.cc
+  src/state/static_imu_init.cc
+)
+
+target_link_libraries(static_imu_init_test
+  ctlio_lib
+)
+
