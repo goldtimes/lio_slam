@@ -54,6 +54,37 @@ link_directories(${${CERES_LIBRARIES}})
 find_package(yaml-cpp REQUIRED)
 include_directories(${yaml-cpp_INCLUDE_DIRS})
 
+## third part
+# 其他thirdparty下的内容
+include_directories(${PROJECT_SOURCE_DIR}/thirdparty/)
+include(FetchContent)
+
+FetchContent_Declare(
+        tessil 
+	SOURCE_DIR ${PROJECT_SOURCE_DIR}/thirdparty/tessil-src)
+
+if (NOT tessil_POPULATED)
+    set(BUILD_TESTING OFF)
+    FetchContent_Populate(tessil)
+
+    add_library(robin_map INTERFACE)
+    add_library(tsl::robin_map ALIAS robin_map)
+
+    target_include_directories(robin_map INTERFACE
+            "$<BUILD_INTERFACE:${tessil_SOURCE_DIR}/include>")
+
+    list(APPEND headers "${tessil_SOURCE_DIR}/include/tsl/robin_growth_policy.h"
+            "${tessil_SOURCE_DIR}/include/tsl/robin_hash.h"
+            "${tessil_SOURCE_DIR}/include/tsl/robin_map.h"
+            "${tessil_SOURCE_DIR}/include/tsl/robin_set.h")
+    target_sources(robin_map INTERFACE "$<BUILD_INTERFACE:${headers}>")
+
+    if (MSVC)
+        target_sources(robin_map INTERFACE
+                "$<BUILD_INTERFACE:${tessil_SOURCE_DIR}/tsl-robin-map.natvis>")
+    endif ()
+endif ()
+
 set(third_party_libs
     ${catkin_LIBRARIES}
     ${g2o_libs}
@@ -63,5 +94,6 @@ set(third_party_libs
     glog 
     gflags
     ${yaml-cpp_LIBRARIES}
+    robin_map
     yaml-cpp
 )
