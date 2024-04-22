@@ -8,6 +8,8 @@ namespace ctlio::slam {
 
 enum class IcpModel { POINT_TO_PLANE = 0, CT_POINT_TO_PLANE = 1 };
 
+enum class MotionCompensation { NONE = 0, CONSTANT_VELOCITY = 1, ITERATIVE = 2, CONTINUOUS = 3 };
+
 struct Neighborhood {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 

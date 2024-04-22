@@ -149,4 +149,7 @@ class ESKF {
     // 误差状态
     Vec18d dx_ = Vec18d::Zero();
 };
+
+using ESKFD = ESKF<double>;
+using ESKFF = ESKF<float>;
 }  // namespace ctlio::slam

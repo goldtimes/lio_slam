@@ -32,4 +32,15 @@ void ComputeMeanAndCovDiag(const C& datas, D& mean, D& cov_diag, Getter&& getter
 
     // clang-format on
 }
+
+template <typename S>
+inline Eigen::Matrix<S, 3, 1> VecFromArray(const std::vector<S>& value) {
+    return Eigen::Matrix<S, 3, 1>(value[0], value[1], value[2]);
+}
+
+template <typename S>
+inline Eigen::Matrix<S, 3, 3> Mat3FromArray(const std::vector<S>& value) {
+    Eigen::Matrix<S, 3, 3> mat3d;
+    mat3d << value[0], value[1], value[2], value[3], value[4], value[5], value[6], value[7], value[8];
+}
 }  // namespace ctlio::slam::math
