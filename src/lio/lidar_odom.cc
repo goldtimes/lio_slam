@@ -217,7 +217,7 @@ void LidarOdom::ProcessMeasurements(MeasureGroup& meas) {
     CloudFrame* p_frame;
     Timer::Evaluate(
         [&]() { p_frame = buildFrame(const_surf, current_state, meas.lidar_begin_time, meas.lidar_end_time); },
-        "build local map");
+        "build frame");
 
     // scan_to_submap
     Timer::Evaluate([&] { poseEstimation(p_frame); }, "pose  estimation");
@@ -270,6 +270,122 @@ void LidarOdom::TryInitIMU() {
                                    imu_init_->GetGravity());
         imu_need_init_ = false;
     }
+}
+
+void LidarOdom::Predict() {
+    imu_states_.emplace_back(eskf_.GetState());
+    double curr_time = measure_.lidar_end_time;
+    Vec3d last_gyro, last_acc;
+    for (auto& imu : measure_.imus_) {
+        double time_imu = imu->timestamped_;
+        if (imu->timestamped_ <= curr_time) {
+            if (last_imu_ == nullptr) {
+                last_imu_ = imu;
+            }
+            eskf_.Predict(*imu);
+            imu_states_.push_back(eskf_.GetState());
+            last_imu_ = imu;
+        } else {
+            double dt_1 = time_imu - curr_time;
+            double dt_2 = curr_time - last_imu_->timestamped_;
+            double w1 = dt_1 / (dt_2 + dt_1);
+            double w2 = dt_2 / (dt_2 + dt_1);
+            Eigen::Vector3d acc_aver = w1 * last_imu_->acce_ + w2 * imu->acce_;
+            Eigen::Vector3d gyro_aver = w1 * last_imu_->gyro_ + w2 * imu->gyro_;
+            IMUPtr imu_tmp = std::make_shared<IMU>(curr_time, gyro_aver, acc_aver);
+            eskf_.Predict(*imu_tmp);
+            imu_states_.emplace_back(eskf_.GetState());
+            last_imu_ = imu_tmp;
+        }
+    }
+}
+
+void LidarOdom::stateInitialization() {
+    // first frame
+    if (index_frame < 2) {
+        current_state->rotation_begin = Eigen::Quaterniond(imu_states_.front().R_.matrix());
+        current_state->translation_begin = imu_states_.front().p_;
+        current_state->rotation = Eigen::Quaterniond(imu_states_.back().R_.matrix());
+        current_state->translation = imu_states_.back().p_;
+    } else {
+        // 上一帧的pose
+        current_state->rotation_begin = all_state_frame[all_state_frame.size() - 1]->rotation;
+        current_state->translation_begin = all_state_frame[all_state_frame.size() - 1]->translation;
+        // imu的预测
+        current_state->rotation = Eigen::Quaterniond(imu_states_.back().R_.matrix());
+        current_state->translation = imu_states_.back().p_;
+    }
+}
+
+CloudFrame* LidarOdom::buildFrame(std::vector<point3D>& const_surf, State* cur_state, double time_begin,
+                                  double time_end) {
+    std::vector<point3D> frame_surf(const_surf);
+    if (index_frame < 2) {
+        // 第一帧
+        for (auto& point_tmp : frame_surf) {
+            point_tmp.alpha_time = 1.0;
+        }
+    }
+    // 匀速运动去畸变
+    if (options_.motion_compensation == MotionCompensation::CONSTANT_VELOCITY) {
+        Undistort(frame_surf);
+    }
+    // 用imu去畸变
+    for (auto& point_tmp : frame_surf) {
+        transformPoint(options_.motion_compensation, point_tmp, current_state->rotation_begin, current_state->rotation,
+                       current_state->translation_begin, current_state->translation, R_LtoI, t_LtoI);
+    }
+    CloudFrame* frame = new CloudFrame(frame_surf, const_surf, cur_state);
+    frame->time_frame_begin = time_begin;
+    frame->time_frame_end = time_end;
+    frame->dt_offset = 0;
+    frame->frame_id = index_frame;
+    return frame;
+}
+
+void LidarOdom::poseEstimation(CloudFrame* frame) {
+    // 不是第一帧
+    if (index_frame > 1) {
+        Timer::Evaluate([&]() { optimize(frame); }, "optimize");
+    }
+    bool add_points = true;
+    if (add_points) {
+        // build local map
+        Timer::Evaluate([&]() { map_incremental(frame); }, "map update");
+    }
+    //
+    Timer::Evaluate([&]() { lasermap_fov_segment(); }, "lasermap_fov_segment");
+}
+
+void LidarOdom::optimize(CloudFrame* frame) {
+}
+
+void LidarOdom::map_incremental(CloudFrame* frame, int min_num_points) {
+    for (const auto& point : frame->point_surf) {
+        addPointToMap(voxel_map, point.point, point.intensity, options_.size_voxel_map,
+                      options_.max_num_points_in_voxel, options_.min_distance_points, min_num_points, frame);
+    }
+    std::string topic = "laser";
+    pub_cloud_to_ros(topic, points_world, frame->time_frame_end);
+    points_world->clear();
+}
+
+void LidarOdom::lasermap_fov_segment() {
+    Eigen::Vector3d location = current_state->translation;
+    std::vector<Voxel> voxels_to_erase;
+    for (auto& pair : voxel_map) {
+        // 体素中点云中的第一个点
+        Eigen::Vector3d pt = pair.second.points[0];
+        if ((pt - location).squaredNorm() > options_.max_distance * options_.max_distance) {
+            // 将需要删除的点云存放起来
+            voxels_to_erase.push_back(pair.first);
+        }
+    }
+    for (auto& voxel : voxels_to_erase) {
+        voxel_map.erase(voxel);
+    }
+    // voxels_to_erase
+    std::vector<Voxel>().swap(voxels_to_erase);
 }
 
 }  // namespace ctlio::slam

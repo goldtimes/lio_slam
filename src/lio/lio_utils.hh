@@ -3,7 +3,9 @@
 #include "common/math_utils.hh"
 #include "sensors/imu.hh"
 #include "sensors/odom.hh"
+#include "sensors/point_types.hh"
 #include "state/navi_state.hh"
+
 namespace ctlio::slam {
 
 enum class IcpModel { POINT_TO_PLANE = 0, CT_POINT_TO_PLANE = 1 };
@@ -94,4 +96,9 @@ class numType {
         return mat_skew
     }
 };
+
+void transformPoint(MotionCompensation compensation, point3D& point_temp, Eigen::Quaterniond& q_begin,
+                    Eigen::Quaterniond& q_end, Eigen::Vector3d& t_begin, Eigen::Vector3d& t_end,
+                    Eigen::Matrix3d& R_imu_lidar, Eigen::Vector3d& t_imu_lidar);
+
 }  // namespace ctlio::slam
