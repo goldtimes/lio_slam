@@ -117,4 +117,76 @@ struct FunctorPointToPoint {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
+// 体素中点云分布的cost函数
+struct FuntorPointToDistribution {
+    static constexpr int NumResiduals() {
+        return 1;
+    }
+
+    FuntorPointToDistribution(const Eigen::Vector3d& world_point, const Eigen::Vector3d& raw_point,
+                              const Eigen::Matrix3d& cov, double weight = 1.0)
+        : world_point_(world_point), raw_point_(raw_point), weight_(weight) {
+        // Eigen::JacobiSVD<Eigen::Matrix3d> svd(cov);
+        Neighborhood_information_ = (cov + Eigen::Matrix3d::Identity() * epsilon).inverse();
+    }
+
+    template <typename T>
+    bool operator()(const T* const rot_param, const T* const trans_params, T* residual) const {
+        Eigen::Map<Eigen::Quaternion<T>> quat(const_cast<T*> rot_param);
+        Eigen::Matrix<T, 3, 1> transformed_point = quat.normalized() * raw_point_.template cast<T>();
+        transformed_point(0, 0) += trans_params[0];
+        transformed_point(1, 0) += trans_params[1];
+        transformed_point(2, 0) += trans_params[2];
+
+        Eigen::Matrix<T, 3, 1> diff = transformed_point - world_point_.template cast<T>();
+        residual[0] = T(weight_) * (diff.transpose() * Neighborhood_information_ * diff)(0, 0);
+        return true;
+    }
+
+    static ceres::CostFunction* Create(const Eigen::Vector3d& world_point, const Eigen::Vector3d& raw_point,
+                                       const Eigen::Matrix3d& cov, double weight = 1.0) {
+        return (new ceres::AutoDiffCostFunction<FuntorPointToDistribution, 1, 4, 3>(
+            new FuntorPointToDistribution(world_point, raw_point, cov, weight)));
+    }
+
+    Eigen::Vector3d world_point_;
+    Eigen::Vector3d raw_point_;
+    Eigen::Matrix3d Neighborhood_information_;
+    double weight_ = 1.0;
+    double epsilon = 0.05;
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
+// ct-functor
+template <typename FunctorT>
+struct CTFunctor {
+    static constexpr int NumResiduals() {
+        return FuncT::NumResiduals();
+    }
+
+    using cost_function_t = ceres::AutoDiffCostFunction<CTFunctor<Functor>, FunctorT::NumResiduals(), 4, 3, 4, 3>;
+    CTFunctor(double timestamp, const Eigen::Vector3d& world_point, const Eigen::Vector3d& raw_point,
+              const Eigen::Vector3d& desc, double weight)
+        : FuncT(world_point, raw_point, desc, weight), alpha_time_(timestamp) {
+    }
+    template <typename T>
+    inline bool operator()(const T* const begin_rot, const T* const begin_trans, const T* const end_rot,
+                           const T* const end_trans, T* residual) const {
+        T alpha_m = T(1.0 - alpha_time_);
+        T alpha = T(alpha_time_);
+        Eigen::Map<Eigen::Quaternion<T>> quat_begin(const_cast<T*>(begin_rot));
+        Eigen::Map<Eigen::Quaternion<T>> quat_end(const_cast<T*>(end_rot));
+        Eigen::Quaternion<T> quat_inter = quat_begin.normalized().slerp(T(alpha), quat_end.normalized());
+        quat_inter.normalize();
+        Eigen::Matrxi<T, 3, 1> tr;
+        tr(0, 0) = alpha_m * begin_trans[0] + alpha_time_ * end_trans[0];
+        tr(1, 0) = alpha_m * begin_trans[1] + alpha_time_ * end_trans[1];
+        tr(2, 0) = alpha_m * begin_trans[2] + alpha_time_ * end_trans[2];
+        return functor(quat_inter.coeffs().data(), tr.data(), residual);
+    }
+
+    FunctorT functor;
+    double alpha_time_ = 1.0;
+};
 }  // namespace ctlio::slam

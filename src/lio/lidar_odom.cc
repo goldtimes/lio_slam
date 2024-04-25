@@ -358,6 +358,67 @@ void LidarOdom::poseEstimation(CloudFrame* frame) {
 }
 
 void LidarOdom::optimize(CloudFrame* frame) {
+    State* previous_state = nullptr;
+    Eigen::Quaterniond previous_orien = Eigen::Quaterniond::Identity();
+    Eigen::Vector3d previous_vel = Eigen::Vector3d::Zero();
+    Eigen::Vector3d previous_tras = Eigen::Vector3d::Zero();
+
+    State* current_state = frame->p_state;
+    Eigen::Quaterniond begin_quad = current_state->rotation_begin;
+    Eigen::Quaterniond end_quad = current_state->rotation;
+    Eigen::Vector3d begin_trans = current_state->translation_begin;
+    Eigen::Vector3d end_trans = current_state->translation;
+
+    if (frame->frame_id > 1) {
+        previous_state = all_state_frame[frame->frame_id - 2];
+        previous_tras = previous_state->translation;
+        previous_orien = previous_state->rotation;
+        previous_vel = previous_state->translation - previous_state->translation_begin;
+    }
+    if (options_.log_print) {
+    }
+    std::vector<point3D> surf_keypoints;
+    gridSampling(frame->point_surf, surf_keypoints, options_.sampling_rate * options_.surf_res);
+    size_t num_points = frame->point_surf.size();
+    // 已经去畸变了
+    for (int iter = 0; iter < options_.max_num_iteration; ++iter) {
+        ceres::LossFunction* loss_function = new ceres::HuberLoss(0.5);
+        ceres::Problem::Options problem_options;
+        ceres::Problem problem(problem_options);
+#ifdef USE_ANALYTICAL_DERIVATE
+        ceres::LocalParameterization* parameterization = new RotationParameterization();
+#else
+        auto* parameterization = ceres::EigenQuaternionParameterization();
+#endif
+        switch (options_.icpmodel) {
+            case IcpModel::CT_POINT_TO_PLANE:
+                break;
+            case IcpModel::POINT_TO_PLANE:
+                break;
+        }
+        std::vector<ceres::CostFunction*> surf_cost_function;
+        std::vector<Eigen::Vector3d> normal_vec;
+        addSurfCostFactor(surf_cost_function, normal_vec, surf_keypoints, frame);
+        //   TODO: 退化后，该如何处理
+        checkLocalizability(normal_vec);
+        int surf_num = 0;
+        std::cout << "get factor:" << surf_cost_function.size() << std::endl;
+        for (auto& error : surf_cost_function) {
+            surf_num++;
+            switch (options_.icpmodel) {
+                case IcpModel::CT_POINT_TO_PLANE:
+                    problem.AddResidualBlock(error, loss_function, &begin_trans.x(), &begin_quad.x(), &end_trans.x(),
+                                             &end_quad.x());
+                    break;
+                case IcpModel::POINT_TO_PLANE:
+                    problem.AddResidualBlock(error, loss_function, &end_trans.x(), &end_quad.x());
+                    break;
+            }
+        }
+        //   release
+        std::vector<Eigen::Vector3d>().swap(normal_vec);
+        std::vector<ceres::CostFunction*>().swap(surf_cost_function);
+    }
 }
 
 void LidarOdom::map_incremental(CloudFrame* frame, int min_num_points) {

@@ -1,10 +1,12 @@
 #pragma once
+#include <unordered_map>
 #include "common/eigen_types.hh"
 #include "common/math_utils.hh"
 #include "sensors/imu.hh"
 #include "sensors/odom.hh"
 #include "sensors/point_types.hh"
 #include "state/navi_state.hh"
+#include "voxel/voxel_map.hpp"
 
 namespace ctlio::slam {
 
@@ -100,5 +102,7 @@ class numType {
 void transformPoint(MotionCompensation compensation, point3D& point_temp, Eigen::Quaterniond& q_begin,
                     Eigen::Quaterniond& q_end, Eigen::Vector3d& t_begin, Eigen::Vector3d& t_end,
                     Eigen::Matrix3d& R_imu_lidar, Eigen::Vector3d& t_imu_lidar);
+void gridSampling(const std::vector<point3D>& frame, std::vector<point3D>& keypoints, double size_voxel_subsampling);
+void subSampleFrame(std::vector<point3D>& frame, double size_voxel);
 
 }  // namespace ctlio::slam
