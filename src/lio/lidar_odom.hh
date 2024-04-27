@@ -8,6 +8,7 @@
 #include <string>
 #include "common/eigen_types.hh"
 #include "common/timer.hh"
+#include "lidar_factor/analytical_factor.hh"
 #include "lidar_factor/lidar_factor.hh"
 #include "lidar_factor/pose_parameterization.hh"
 #include "sensors/point_types.hh"

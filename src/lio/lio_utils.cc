@@ -58,4 +58,30 @@ void subSampleFrame(std::vector<point3D> &frame, double size_voxel) {
     }
 }
 
+double AngularDistance(const Eigen::Matrix3d &rota, const Eigen::Matrix3d &rotb) {
+    double norm = ((rota * rotb.transpose()).trace() - 1) / 2;
+    norm = std::acos(norm) * 180 / M_PI;
+    return norm;
+}
+double AngularDistance(const Eigen::Vector3d &qa, const Eigen::Vector3d &qb) {
+    Eigen::Quaterniond q_a = Eigen::Quaterniond(Sophus::SO3::exp(qa).matrix());
+    Eigen::Quaterniond q_b = Eigen::Quaterniond(Sophus::SO3::exp(qb).matrix());
+    q_a.normalize();
+    q_b.normalize();
+    Eigen::Matrix3d rota = q_a.toRotationMatrix();
+    Eigen::Matrix3d rotb = q_b.toRotationMatrix();
+
+    double norm = ((rota * rotb.transpose()).trace() - 1) / 2;
+    norm = std::acos(norm) * 180 / M_PI;
+    return norm;
+}
+double AngularDistance(const Eigen::Quaterniond &qa, const Eigen::Quaterniond &qb) {
+    Eigen::Matrix3d rota = qa.toRotationMatrix();
+    Eigen::Matrix3d rotb = qb.toRotationMatrix();
+
+    double norm = ((rota * rotb.transpose()).trace() - 1) / 2;
+    norm = std::acos(norm) * 180 / M_PI;
+    return norm;
+}
+
 }  // namespace ctlio::slam

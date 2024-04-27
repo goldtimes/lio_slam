@@ -97,12 +97,39 @@ class numType {
         // clang-format on
         return mat_skew
     }
-};
+
+    template <typename Derived>
+    static Eigen::Matrix<typename Derived::Scalar, 4, 4> Qleft(const Eigen::QuaternionBase<Derived>& q) {
+        Eigen::Quaternion<typename Derived::Scalar> qq = positify(q);
+        Eigen::Matrix<typename Derived::Scalar, 4, 4> ans;
+        ans(0, 0) = qq.w(), ans.template block<1, 3>(0, 1) = -qq.vec().transpose();
+        ans.template block<3, 1>(1, 0) = qq.vec(),
+                                    ans.template block<3, 3>(1, 1) =
+                                        qq.w() * Eigen::Matrix<typename Derived::Scalar, 3, 3>::Identity() +
+                                        skewSymmetric(qq.vec());
+        return ans;
+    }
+
+    template <typename Derived>
+    static Eigen::Matrix<typename Derived::Scalar, 4, 4> Qright(const Eigen::QuaternionBase<Derived>& p) {
+        Eigen::Quaternion<typename Derived::Scalar> pp = positify(p);
+        Eigen::Matrix<typename Derived::Scalar, 4, 4> ans;
+        ans(0, 0) = pp.w(), ans.template block<1, 3>(0, 1) = -pp.vec().transpose();
+        ans.template block<3, 1>(1, 0) = pp.vec(),
+                                    ans.template block<3, 3>(1, 1) =
+                                        pp.w() * Eigen::Matrix<typename Derived::Scalar, 3, 3>::Identity() -
+                                        skewSymmetric(pp.vec());
+        return ans;
+    }
+};  // namespace ctlio::slam
 
 void transformPoint(MotionCompensation compensation, point3D& point_temp, Eigen::Quaterniond& q_begin,
                     Eigen::Quaterniond& q_end, Eigen::Vector3d& t_begin, Eigen::Vector3d& t_end,
                     Eigen::Matrix3d& R_imu_lidar, Eigen::Vector3d& t_imu_lidar);
 void gridSampling(const std::vector<point3D>& frame, std::vector<point3D>& keypoints, double size_voxel_subsampling);
 void subSampleFrame(std::vector<point3D>& frame, double size_voxel);
+double AngularDistance(const Eigen::Matrix3d& rota, const Eigen::Matrix3d& rotb);
+double AngularDistance(const Eigen::Vector3d& qa, const Eigen::Vector3d& qb);
+double AngularDistance(const Eigen::Quaterniond& qa, const Eigen::Quaterniond& qb);
 
 }  // namespace ctlio::slam

@@ -2,6 +2,16 @@
 #define USE_ANALYTICAL_DERIVATE 1
 
 namespace ctlio::slam {
+
+using pair_distance_t = std::tuple<double, Eigen::Vector3d, Voxel>;
+struct comparator {
+    bool operator()(const pair_distance_t& left, const pair_distance_t& right) const {
+        return std::get<0>(left) < std::get<0>(right);
+    }
+};
+
+using priority_queue_t = std::priority_queue<pair_distance_t, std::vector<pair_distance_t>, comparator>;
+
 LidarOdom::LidarOdom() {
     lidar_point_cov = 0.001;
     index_frame = 1;
@@ -392,8 +402,14 @@ void LidarOdom::optimize(CloudFrame* frame) {
 #endif
         switch (options_.icpmodel) {
             case IcpModel::CT_POINT_TO_PLANE:
+                problem.AddParameterBlock(&begin_quad.x(), 4, parameterization);
+                problem.AddParameterBlock(&end_quad.x(), 4, parameterization);
+                problem.AddParameterBlock(&begin_trans.x(), 3);
+                problem.AddParameterBlock(&end_trans.x(), 3);
                 break;
             case IcpModel::POINT_TO_PLANE:
+                problem.AddParameterBlock(&end_quad.x(), 4, parameterization);
+                problem.AddParameterBlock(&end_trans.x(), 3);
                 break;
         }
         std::vector<ceres::CostFunction*> surf_cost_function;
@@ -418,7 +434,246 @@ void LidarOdom::optimize(CloudFrame* frame) {
         //   release
         std::vector<Eigen::Vector3d>().swap(normal_vec);
         std::vector<ceres::CostFunction*>().swap(surf_cost_function);
+        if (options_.icpmodel == IcpModel::CT_POINT_TO_PLANE) {
+            if (options_.beta_location_consistency > 0.0) {
+#ifdef USE_ANALYTICAL_DERIVATE
+                LocationConsistencyFactor* cost_location_consistency = new LocationConsistencyFactor(
+                    previous_tras, std::sqrt(surf_num * options_.beta_location_consistency * lidar_point_cov));
+#else
+#endif
+                problem.AddResidualBlock(cost_location_consistency, nullptr, &begin_trans.x());
+            }
+            if (options_.beta_orientation_consistency > 0.0) {
+                RotationConsistencyFactor* cost_rotation_consistency = new RotationConsistencyFactor(
+                    previous_orien, std::sqrt(surf_num * options_.beta_constant_velocity * lidar_point_cov));
+                problem.AddResidualBlock(cost_rotation_consistency, nullptr, &begin_quad.x());
+            }
+            if (options_.beta_small_velocity > 0.0) {
+                SmallVelocityFactor* cost_small_velocity =
+                    new SmallVelocityFactor(std::sqrt(surf_num * options_.beta_constant_velocity * lidar_point_cov));
+                problem.AddResidualBlock(cost_small_velocity, nullptr, &begin_trans.x(), &end_trans.x());
+            }
+        }
+        if (surf_num < options_.min_num_residuals) {
+            std::stringstream ss_out;
+            ss_out << "[Optimization] Error : not enough keypoints selected in ct-icp!" << std::endl;
+            ss_out << "[Optimization] number_of_residuals:" << surf_num << std::endl;
+            std::cout << "Error: " << ss_out.str();
+        }
+
+        ceres::Solver::Options options;
+        options.max_num_iterations = 5;
+        options.num_threads = 3;
+        options.minimizer_progress_to_stdout = false;
+        options.trust_region_strategy_type = ceres::TrustRegionStrategyType::LEVENBERG_MARQUARDT;
+
+        ceres::Solver::Summary summary;
+        ceres::Solve(options, &problem, &summary);
+        if (!summary.IsSolutionUsable()) {
+            std::cout << summary.FullReport() << std::endl;
+            throw std::runtime_error("Error During Optimization");
+        }
+        begin_quad.normalize();
+        end_quad.normalize();
+
+        double diff_trans = 0, diff_rot = 0;
+        diff_trans += (current_state->translation_begin - begin_trans).norm();
+        diff_rot += AngularDistance(current_state->rotation_begin, begin_quad);
+
+        diff_trans += (current_state->translation - end_trans).norm();
+        diff_rot += AngularDistance(current_state->rotation, end_quad);
+
+        if (options_.icpmodel == IcpModel::CT_POINT_TO_PLANE) {
+            frame->p_state->translation_begin = begin_trans;
+            frame->p_state->rotation_begin = begin_quad;
+            frame->p_state->translation = end_trans;
+            frame->p_state->rotation = end_quad;
+
+            current_state->translation_begin = begin_trans;
+            current_state->rotation_begin = begin_quad;
+            current_state->translation = end_trans;
+            current_state->rotation = end_quad;
+        }
+        if (diff_rot < options_.thres_orientation_norm && diff_trans < options_.thres_translation_norm) {
+            if (options_.log_print) {
+                std::cout << "Optimization: Finished with N=" << iter << "ICP iterations" << std::endl;
+                break;
+            }
+        }
     }
+    std::vector<point3D>().swap(surf_keypoints);
+    // transformKeyPoints(frame->point_surf);
+}
+
+void LidarOdom::addSurfCostFactor(std::vector<ceres::CostFunction*>& surf, std::vector<Eigen::Vector3d>& normals,
+                                  std::vector<point3D>& keypoints, const CloudFrame* p_frame) {
+    auto estimatePointNeighborhood =
+        [&](std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& vector_neightbors,
+            Eigen::Vector3d& location, double& planarity_weight) {
+            auto neightborhood = computeNeighborhoodDistribution(vector_neightbors);
+            planarity_weight = std::pow(neightborhood.a2D, options_.power_planarity);
+            if (neightborhood.normal.dot(p_frame->p_state->translation_begin - location) < 0.0) {
+                neightborhood.normal = -1.0 * neightborhood.normal;
+            }
+            return neightborhood;
+        };
+
+    double lambda_weight = std::abs(options_.weight_alpha);
+    double lambda_neighborhood = std::abs(options_.weight_neighborhood);
+    const double kMaxPointToPlan = options_.max_dist_to_plane_icp;
+    const double sum = lambda_weight + lambda_neighborhood;
+
+    lambda_weight /= sum;
+    lambda_neighborhood /= sum;
+
+    const short nb_voxels_visited = p_frame->frame_id < options_.init_num_frames ? 2 : options_.voxel_neighborhood;
+    const int kThresholdCapacity =
+        p_frame->frame_id < options_.init_num_frames ? 1 : options_.threshold_voxel_occupancy;
+
+    size_t num = keypoints.size();
+    int num_residuals = 0;
+    for (int k = 0; k < num; ++k) {
+        auto& keypoint = keypoints[k];
+        auto& raw_point = keypoint.raw_point;
+        std::vector<Voxel> voxels;
+        auto vector_neighbors = searchNeighbors(voxel_map, keypoint.point, nb_voxels_visited, options_.size_voxel_map,
+                                                options_.max_number_neighbors, kThresholdCapacity,
+                                                options_.estimate_normal_from_neighborhood ? nullptr : &voxels);
+        if (vector_neighbors.size() < options_.min_number_neighbors) {
+            continue;
+        }
+        double weight;
+        Eigen::Vector3d point_world = T_LtoI_ * raw_point;
+        auto neightborhood = estimatePointNeighborhood(vector_neighbors, point_world, weight);
+
+        weight =
+            lambda_weight * weight + lambda_neighborhood * std::exp(-(vector_neighbors[0] - keypoint.point).norm() /
+                                                                    (kMaxPointToPlan * options_.min_number_neighbors));
+        double point_to_plane_dist;
+        std::set<Voxel> neightbor_voxels;
+        for (int i = 0; i < options_.num_closest_neighbors; ++i) {
+            point_to_plane_dist = std::abs((keypoint.point - vector_neighbors[i]).transpose() * neightborhood.normal);
+            if (point_to_plane_dist < options_.max_dist_to_plane_icp) {
+                num_residuals++;
+                Eigen::Vector3d norm_vector = neightborhood.normal;
+                norm_vector.normalize();
+                normals.push_back(norm_vector);
+                double norm_offset = -norm_vector.dot(vector_neighbors[i]);
+                switch (options_.icpmodel) {
+                    case IcpModel::CT_POINT_TO_PLANE:
+                        CTLidarPlaneNormFactor* cost_function = new CTLidarPlaneNormFactor(
+                            keypoints[k].raw_point, norm_vector, norm_offset, keypoints[k].alpha_time, weight);
+                        surf.push_back(cost_function);
+                        break;
+
+                    case IcpModel::POINT_TO_PLANE:
+                        Eigen::Vector3d point_end =
+                            p_frame->p_state->rotation.inverse() * keypoints[k].point -
+                            p_frame->p_state->rotation.inverse() * p_frame->p_state->translation;
+                        LidarPlaneNormFactor* cost_function =
+                            new LidarPlaneNormFactor(point_end, norm_vector, norm_offset, weight);
+                        surf.push_back(cost_function);
+                        break;
+                }
+            }
+        }
+        if (num_residuals >= options_.max_num_iteration) {
+            break;
+        }
+    }
+}
+
+double LidarOdom::checkLocalizability(std::vector<Eigen::Vector3d> planeNormals) {
+}
+
+Neighborhood LidarOdom::computeNeighborhoodDistribution(
+    const std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& points) {
+    Neighborhood neightborhood;
+    Eigen::Vector3d barycenter(Eigen::Vector3d(0, 0, 0));
+    for (auto& point : points) {
+        barycenter += point;
+    }
+    barycenter /= (double)points.size();
+    neightborhood.center = barycenter;
+    Eigen::Matrix3d cov = Eigen::Matrix3d::Zero();
+    for (auto& point : points) {
+        for (int i = 0; i < 3; ++i) {
+            for (int j = i; j < 3; ++j) {
+                cov(i, j) += (point(i) - barycenter(i)) * (point(j) - barycenter(j));
+            }
+        }
+    }
+    cov(1, 0) = cov(0, 1);
+    cov(2, 0) = cov(0, 2);
+    cov(2, 1) = cov(1, 2);
+    neightborhood.covariance = cov;
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(cov);
+    Eigen::Vector3d normal(es.eigenvectors().col(0).normalized());
+    neightborhood.normal = normal;
+
+    double sigma_1 = sqrt(std::abs(es.eigenvalues()[2]));
+    double sigma_2 = sqrt(std::abs(es.eigenvalues()[1]));
+    double sigma_3 = sqrt(std::abs(es.eigenvalues()[0]));
+    neightborhood.a2D = (sigma_2 - sigma_3) / sigma_1;
+    if (neightborhood.a2D != neightborhood.a2D) {
+        throw std::runtime_error("error");
+    }
+    return neightborhood;
+}
+
+std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> LidarOdom::searchNeighbors(
+    const VoxelHashMap& map, const Eigen::Vector3d& point, int nb_voxels_visited, double size_voxel_map,
+    int max_num_neighbors, int threshold_voxel_capacity = 1, std::vector<Voxel>* voxels = nullptr) {
+    if (voxels != nullptr) {
+        voxels->reserve(max_num_neighbors);
+    }
+    short kx = static_cast<short>(point[0] / size_voxel_map);
+    short ky = static_cast<short>(point[1] / size_voxel_map);
+    short kz = static_cast<short>(point[2] / size_voxel_map);
+
+    priority_queue_t priority_queue;
+    Voxel voxel_temp(kx, ky, kz);
+    for (short kxx = kx - nb_voxels_visited; kxx < kx + nb_voxels_visited + 1; ++kxx) {
+        for (short kyy = ky - nb_voxels_visited; kyy < ky + nb_voxels_visited + 1; ++kyy) {
+            for (short kzz = kz - nb_voxels_visited; kzz < kz + nb_voxels_visited + 1; ++kzz) {
+                voxel_temp.x = kxx;
+                voxel_temp.y = kyy;
+                voxel_temp.z = kzz;
+                auto search = map.find(voxel_temp);
+                if (search != map.end()) {
+                    const auto& voxel_block = search.value();
+                    if (voxel_block.NumPoints() < threshold_voxel_capacity) {
+                        continue;
+                    }
+                    for (int i = 0; i < voxel_block.NumPoints(); ++i) {
+                        auto& neighbor = voxel_block.points[i];
+                        double distance = (neighbor - point).norm();
+                        if (priority_queue.size() == max_num_neighbors) {
+                            if (distance < std::get<0>(priority_queue.top())) {
+                                priority_queue.pop();
+                                priority_queue.emplace(distance, neighbor, voxel_temp);
+                            }
+                        } else {
+                            priority_queue.emplace(distance, neighbor, voxel_temp);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    auto size = priority_queue.size();
+    std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> closeset_neightbors(size);
+    if (voxels != nullptr) {
+        voxels->resize(size);
+    }
+    for (int i = 0; i < size; ++i) {
+        closeset_neightbors[size - 1 - i] = std::get<1>(priority_queue.top());
+        if (voxels != nullptr) {
+            (*voxels)[size - 1 - i] = std::get<2>(priority_queue.top());
+            priority_queue.pop();
+        }
+    }
+    return closeset_neightbors;
 }
 
 void LidarOdom::map_incremental(CloudFrame* frame, int min_num_points) {
