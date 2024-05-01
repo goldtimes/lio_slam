@@ -21,7 +21,7 @@ struct FunctorPointToPlane {
     bool operator()(const T* const rot_params, const T* const trans_params, T* residual) const {
         Eigen::Map<Eigen::Quaternion<T>> quat(const_cast<T*>(rot_params));
         // 转到世界坐标系下
-        Eigen::Matrix<T, 3, 1> transformed = quat.nomalized() * raw_point_.template cast<T>();
+        Eigen::Matrix<T, 3, 1> transformed = quat.normalized() * raw_point_.template cast<T>();
         transformed(0, 0) += trans_params[0];
         transformed(1, 0) += trans_params[1];
         transformed(2, 0) += trans_params[2];
@@ -57,7 +57,7 @@ struct FunctorPointToLine {
     }
 
     template <typename T>
-    bool operator()(const T* const rot, const T* const trans, T* residuals) {
+    bool operator()(const T* const rot, const T* const trans, T* residuals) const {
         Eigen::Map<Eigen::Quaternion<T>> quat(const_cast<T*>(rot));
         Eigen::Matrix<T, 3, 1> transformed = quat * raw_point_.template cast<T>();
         transformed(0, 0) += trans[0];
@@ -132,7 +132,7 @@ struct FuntorPointToDistribution {
 
     template <typename T>
     bool operator()(const T* const rot_param, const T* const trans_params, T* residual) const {
-        Eigen::Map<Eigen::Quaternion<T>> quat(const_cast<T*> rot_param);
+        Eigen::Map<Eigen::Quaternion<T>> quat(const_cast<T*>(rot_param));
         Eigen::Matrix<T, 3, 1> transformed_point = quat.normalized() * raw_point_.template cast<T>();
         transformed_point(0, 0) += trans_params[0];
         transformed_point(1, 0) += trans_params[1];
@@ -162,13 +162,13 @@ struct FuntorPointToDistribution {
 template <typename FunctorT>
 struct CTFunctor {
     static constexpr int NumResiduals() {
-        return FuncT::NumResiduals();
+        return FunctorT::NumResiduals();
     }
 
-    using cost_function_t = ceres::AutoDiffCostFunction<CTFunctor<Functor>, FunctorT::NumResiduals(), 4, 3, 4, 3>;
+    using cost_function_t = ceres::AutoDiffCostFunction<CTFunctor<FunctorT>, FunctorT::NumResiduals(), 4, 3, 4, 3>;
     CTFunctor(double timestamp, const Eigen::Vector3d& world_point, const Eigen::Vector3d& raw_point,
               const Eigen::Vector3d& desc, double weight)
-        : FuncT(world_point, raw_point, desc, weight), alpha_time_(timestamp) {
+        : FunctorT(world_point, raw_point, desc, weight), alpha_time_(timestamp) {
     }
     template <typename T>
     inline bool operator()(const T* const begin_rot, const T* const begin_trans, const T* const end_rot,
@@ -179,7 +179,7 @@ struct CTFunctor {
         Eigen::Map<Eigen::Quaternion<T>> quat_end(const_cast<T*>(end_rot));
         Eigen::Quaternion<T> quat_inter = quat_begin.normalized().slerp(T(alpha), quat_end.normalized());
         quat_inter.normalize();
-        Eigen::Matrxi<T, 3, 1> tr;
+        Eigen::Matrix<T, 3, 1> tr;
         tr(0, 0) = alpha_m * begin_trans[0] + alpha_time_ * end_trans[0];
         tr(1, 0) = alpha_m * begin_trans[1] + alpha_time_ * end_trans[1];
         tr(2, 0) = alpha_m * begin_trans[2] + alpha_time_ * end_trans[2];

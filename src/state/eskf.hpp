@@ -152,4 +152,94 @@ class ESKF {
 
 using ESKFD = ESKF<double>;
 using ESKFF = ESKF<float>;
+
+template <typename S>
+bool ESKF<S>::Predict(const IMU& imu) {
+    assert(imu.timestamped_ >= current_time_);
+    double dt = imu.timestamped_ - current_time_;
+    if (dt > 5 * (options_.imu_dt_) || dt < 0) {
+        // 时间间隔不对，可能是第一个IMU数据，没有历史信息
+        LOG(INFO) << "skip this imu because dt_ = " << dt;
+        current_time_ = imu.timestamped_;
+        return false;
+    }
+    // 状态递推
+    Vec3d new_p = p_ + v_ * dt + 0.5 * (R_ * (imu.acce_ - ba_)) * dt * dt + 0.5 * gravity_ * dt * dt;
+    Vec3d new_v = v_ + R_ * (imu.acce_ - ba_) * dt + gravity_ * dt;
+    SO3 new_R = R_ * SO3::exp((imu.gyro_ - bg_) * dt);
+
+    R_ = new_R;
+    p_ = new_p;
+    v_ = new_v;
+    // 误差状态递推
+    Mat18d F = Mat18d::Identity();
+    F.block<3, 3>(0, 3) = Mat3d::Identity() * dt;                         // p对v
+    F.block<3, 3>(3, 6) = -R_.matrix() * SO3::hat(imu.acce_ - ba_) * dt;  // v 对 theta
+    F.block<3, 3>(3, 12) = -R_.matrix() * dt;                             // v对ba
+    F.block<3, 3>(3, 15) = Mat3d::Identity() * dt;                        // v对g
+    F.block<3, 3>(6, 6) = SO3::exp(-(imu.gyro_ - bg_) * dt).matrix();     // theta对theta
+    F.block<3, 3>(6, 9) = -Mat3d::Identity() * dt;                        // theta对bg
+
+    // dx_ = F * dx_;
+    cov_ = F * cov_.eval() * F.transpose() + Q_;
+    current_time_ = imu.timestamped_;
+    return true;
+}
+/**
+ * @brief 轮速计修正
+ */
+template <typename S>
+bool ESKF<S>::ObserveWheelSpeed(const Odom& odom) {
+    assert(odom.timestamped_ >= current_time_);
+    Eigen::Matrix<double, 3, 18> H = Eigen::Matrix<double, 3, 18>::Zero();
+    H.block<3, 3>(0, 3) = Mat3d::Identity();
+    // 卡尔曼增益
+    Eigen::Matrix<double, 18, 3> K = cov_ * H.transpose() * (H * cov_ * H.transpose + odom_noise_).inverse();
+    // 车体速度
+    double velo_l = options_.wheel_radius_ * odom.left_pluse_ / options_.circle_pulse_ * 2 * M_PI / options_.odom_span_;
+    double velo_r =
+        options_.wheel_radius_ * odom.right_pluse_ / options_.circle_pulse_ * 2 * M_PI / options_.odom_span_;
+    double average_vel = 0.5 * (velo_l + velo_r);
+    Vec3d vel_odom(average_vel, 0, 0);
+    Vec3d vel_world = R_ * vel_odom;
+    // k * delta_v;
+    dx_ = K * (vel_world - v_);
+    cov_ = (Eigen::Matrix<double, 18, 18>::Identity() - K * H) * cov_;
+    UpdateAndReset();
+
+    return true;
+}
+template <typename S>
+bool ESKF<S>::ObserveSE3(const SE3& pose, double trans_noise, double ang_noise) {
+    Eigen::Matrix<double, 6, 18> H = Eigen::Matrix<double, 6, 18>::Zero();
+    H.block<3, 3>(0, 0) = Mat3d::Identity();
+    H.block<3, 3>(3, 6) = Mat3d::Identity();
+    Vec6d noise;
+    noise << trans_noise, trans_noise, trans_noise, ang_noise, ang_noise, ang_noise;
+    Mat6d V = noise.asDiagonal();
+    Eigen::Matrix<double, 18, 6> K = cov_ * H.transpose() * (H * cov_ * H.transpose() + V).inverse();
+    Vec6d residual = Vec6d::Zero();
+    residual.head<3>() = (pose.translation() - p_);
+    residual.tail<3>() = (R_.inverse() * pose.so3()).log();
+    dx_ = K * residual;
+    cov_ = (Mat18d::Identity() - K * H) * cov_;
+    UpdateAndReset();
+    return true;
+}
+
+template <typename S>
+bool ESKF<S>::ObserveSE3(const SE3& pose, const Vec6d& noise) {
+    Eigen::Matrix<double, 6, 18> H = Eigen::Matrix<double, 6, 18>::Zero();
+    H.block<3, 3>(0, 0) = Mat3d::Identity();
+    H.block<3, 3>(3, 6) = Mat3d::Identity();
+    Mat6d V = noise.asDiagonal();
+    Eigen::Matrix<double, 18, 6> K = cov_ * H.transpose() * (H * cov_ * H.transpose() + V).inverse();
+    Vec6d residual = Vec6d::Zero();
+    residual.head<3>() = (pose.translation() - p_);
+    residual.tail<3>() = (R_.inverse() * pose.so3()).log;
+    dx_ = K * residual;
+    cov_ = (Mat18d::Identity() - K * H) * cov_;
+    UpdateAndReset();
+    return true;
+}
 }  // namespace ctlio::slam

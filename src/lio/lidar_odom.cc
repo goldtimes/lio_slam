@@ -338,7 +338,7 @@ CloudFrame* LidarOdom::buildFrame(std::vector<point3D>& const_surf, State* cur_s
     }
     // 匀速运动去畸变
     if (options_.motion_compensation == MotionCompensation::CONSTANT_VELOCITY) {
-        Undistort(frame_surf);
+        // Undistort(frame_surf);
     }
     // 用imu去畸变
     for (auto& point_tmp : frame_surf) {
@@ -561,18 +561,18 @@ void LidarOdom::addSurfCostFactor(std::vector<ceres::CostFunction*>& surf, std::
                 double norm_offset = -norm_vector.dot(vector_neighbors[i]);
                 switch (options_.icpmodel) {
                     case IcpModel::CT_POINT_TO_PLANE:
-                        CTLidarPlaneNormFactor* cost_function = new CTLidarPlaneNormFactor(
-                            keypoints[k].raw_point, norm_vector, norm_offset, keypoints[k].alpha_time, weight);
-                        surf.push_back(cost_function);
+                        // CTLidarPlaneNormFactor* cost_function = new CTLidarPlaneNormFactor(
+                        //     keypoints[k].raw_point, norm_vector, norm_offset, keypoints[k].alpha_time, weight);
+                        // surf.push_back(cost_function);
                         break;
 
                     case IcpModel::POINT_TO_PLANE:
-                        Eigen::Vector3d point_end =
-                            p_frame->p_state->rotation.inverse() * keypoints[k].point -
-                            p_frame->p_state->rotation.inverse() * p_frame->p_state->translation;
-                        LidarPlaneNormFactor* cost_function =
-                            new LidarPlaneNormFactor(point_end, norm_vector, norm_offset, weight);
-                        surf.push_back(cost_function);
+                        // Eigen::Vector3d point_end =
+                        //     p_frame->p_state->rotation.inverse() * keypoints[k].point -
+                        //     p_frame->p_state->rotation.inverse() * p_frame->p_state->translation;
+                        // LidarPlaneNormFactor* cost_function =
+                        //     new LidarPlaneNormFactor(point_end, norm_vector, norm_offset, weight);
+                        // surf.push_back(cost_function);
                         break;
                 }
             }
@@ -584,6 +584,7 @@ void LidarOdom::addSurfCostFactor(std::vector<ceres::CostFunction*>& surf, std::
 }
 
 double LidarOdom::checkLocalizability(std::vector<Eigen::Vector3d> planeNormals) {
+    return 0.0;
 }
 
 Neighborhood LidarOdom::computeNeighborhoodDistribution(
@@ -623,7 +624,7 @@ Neighborhood LidarOdom::computeNeighborhoodDistribution(
 
 std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> LidarOdom::searchNeighbors(
     const VoxelHashMap& map, const Eigen::Vector3d& point, int nb_voxels_visited, double size_voxel_map,
-    int max_num_neighbors, int threshold_voxel_capacity = 1, std::vector<Voxel>* voxels = nullptr) {
+    int max_num_neighbors, int threshold_voxel_capacity, std::vector<Voxel>* voxels) {
     if (voxels != nullptr) {
         voxels->reserve(max_num_neighbors);
     }
@@ -702,6 +703,62 @@ void LidarOdom::lasermap_fov_segment() {
     }
     // voxels_to_erase
     std::vector<Voxel>().swap(voxels_to_erase);
+}
+
+void LidarOdom::addPointToMap(VoxelHashMap& map, const Eigen::Vector3d& point, const double& intensity,
+                              double voxel_size, int max_num_points_in_voxel, double min_distance_points,
+                              int min_num_points, CloudFrame* p_frame) {
+    short kx = static_cast<short>(point[0] / voxel_size);
+    short ky = static_cast<short>(point[1] / voxel_size);
+    short kz = static_cast<short>(point[2] / voxel_size);
+    VoxelHashMap::iterator iter = map.find(Voxel(kx, ky, kz));
+    if (iter != map.end()) {
+        auto& voxel_block = iter.value();
+        if (!voxel_block.IsFull()) {
+            double sq_dist_min_to_points = 10 * voxel_size * voxel_size;
+            for (int i = 0; i < voxel_block.NumPoints(); ++i) {
+                auto& _point = voxel_block.points[i];
+                double sq_dist = (_point - point).squaredNorm();
+                if (sq_dist < sq_dist_min_to_points) {
+                    sq_dist_min_to_points = sq_dist;
+                }
+            }
+            if (sq_dist_min_to_points > min_distance_points * min_distance_points) {
+                if (min_num_points <= 0 || voxel_block.NumPoints() >= min_num_points) {
+                    voxel_block.AddPoint(point);
+                }
+            }
+        }
+    } else {
+        if (min_num_points <= 0) {
+            VoxelBlock block(max_num_points_in_voxel);
+            block.AddPoint(point);
+            map[Voxel(kx, ky, kz)] = std::move(block);
+        }
+    }
+    addPointToPCL(points_world, point, intensity, p_frame);
+}
+
+void LidarOdom::addPointToPCL(CloudPtr pcl_points, const Eigen::Vector3d& point, const double& intensity,
+                              CloudFrame* p_frame) {
+    pcl::PointXYZI cloudTemp;
+
+    cloudTemp.x = point.x();
+    cloudTemp.y = point.y();
+    cloudTemp.z = point.z();
+    cloudTemp.intensity = intensity;
+    // cloudTemp.intensity = 50 * (point.z() - p_frame->p_state->translation.z());
+    pcl_points->points.push_back(cloudTemp);
+}
+
+void LidarOdom::setFunc(std::function<bool(std::string& topic_name, CloudPtr& cloud, double time)>& func) {
+    pub_cloud_to_ros = func;
+}
+void LidarOdom::setFunc(std::function<bool(std::string& topic_name, SE3& pose, double time)>& func) {
+    pub_pose_to_ros = func;
+}
+void LidarOdom::setFunc(std::function<bool(std::string& topic_name, double time1, double time2)>& func) {
+    pub_data_to_ros = func;
 }
 
 }  // namespace ctlio::slam

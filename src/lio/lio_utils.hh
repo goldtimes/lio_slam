@@ -95,7 +95,12 @@ class numType {
                 mat(2), typename Derived::Scalar(0), -mat(0),
                 -mat(1), mat(0), typename Derived::Scalar(0);
         // clang-format on
-        return mat_skew
+        return mat_skew;
+    }
+
+    template <typename Derived>
+    static Eigen::Quaternion<typename Derived::Scalar> positify(const Eigen::QuaternionBase<Derived>& q) {
+        return q;
     }
 
     template <typename Derived>

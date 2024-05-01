@@ -1,6 +1,5 @@
 #pragma once
-#include <sys/timer.h>
-#include <sys/vtimes.h>
+#include <sys/times.h>
 #include <yaml-cpp/yaml.h>
 #include <condition_variable>
 #include <functional>
@@ -66,7 +65,9 @@ class LidarOdom {
 
     void run();
 
-    int getIndex();
+    int getIndex() {
+        return index_frame;
+    }
 
     void setFunc(std::function<bool(std::string& topic_name, CloudPtr& cloud, double time)>& func);
     void setFunc(std::function<bool(std::string& topic_name, SE3& pose, double time)>& func);

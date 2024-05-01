@@ -45,6 +45,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDEDIR}
+  ${Sophus_INCLUDE_DIR}
   # src/ceres_pose_graph
 )
 
@@ -57,43 +58,50 @@ include_directories(
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
-# add_library(${PROJECT_NAME}.common
-#   src/common/timer.cc)
 
-# target_link_libraries(${PROJECT_NAME}.common
-# )
-
-# add_library(${PROJECT_NAME}.lidarProcess
-#   src/lidar_process/lidar_process.cc)
-
-# target_link_libraries(${PROJECT_NAME}.lidarProcess
-#   ${third_party_libs}
-# )
 set(ctlio_source_file
   src/common/timer.cc
-  src/lidar_process/lidar_process.cc)
-
-add_library(ctlio_lib ${ctlio_source_file})
-  
-target_link_libraries( ctlio_lib
-    ${third_party_libs}
-  )
-
-add_executable(
-  lidar_process_test
-  test/lidar_process_test.cc)
-
-target_link_libraries(lidar_process_test
-  ctlio_lib
-)
-
-add_executable(
-  static_imu_init_test
-  test/static_imu_test.cc
+  src/lidar_process/lidar_process.cc
+  src/lidar_factor/lidar_factor.cc
+  src/lidar_factor/analytical_factor.cc
+  src/lidar_factor/pose_parameterization.cc
+  src/lio/lio_utils.cc
+  src/lio/lidar_odom.cc
   src/state/static_imu_init.cc
 )
 
-target_link_libraries(static_imu_init_test
+add_library(ctlio_lib 
+  ${ctlio_source_file}
+)
+  
+target_link_libraries(ctlio_lib
+    ${third_party_libs}
+    ${Sophus_LIBRARIES}
+    Sophus
+)
+
+add_executable(main_node
+  src/app/main_node.cc
+)
+target_link_libraries(main_node
   ctlio_lib
 )
+
+# add_executable(
+#   lidar_process_test
+#   test/lidar_process_test.cc)
+
+# target_link_libraries(lidar_process_test
+#   ctlio_lib
+# )
+
+# add_executable(
+#   static_imu_init_test
+#   test/static_imu_test.cc
+#   src/state/static_imu_init.cc
+# )
+
+# target_link_libraries(static_imu_init_test
+#   ctlio_lib
+# )
 

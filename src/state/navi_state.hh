@@ -1,3 +1,4 @@
+#pragma once
 #include <sophus/so3.h>
 #include "common/eigen_types.hh"
 

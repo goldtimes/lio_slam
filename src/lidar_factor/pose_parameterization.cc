@@ -8,14 +8,14 @@
  */
 bool PoseParameterization::Plus(const double *x, const double *delta, double *x_plus_delta) const {
     Eigen::Map<const Eigen::Vector3d> _p(x);
-    Eigen::Map<const Eigen::Vector3d> _q(x + 3);
+    Eigen::Map<const Eigen::Quaterniond> _q(x + 3);
     Eigen::Map<const Eigen::Vector3d> dp(delta);
     Eigen::Quaterniond dq = ctlio::slam::numType::deltaQ(Eigen::Map<const Eigen::Vector3d>(delta + 3));
 
     Eigen::Map<Eigen::Vector3d> p(x_plus_delta);
-    Eigen::Map<Eigen::Vector3d> q(x_plus_delta + 3);
+    Eigen::Map<Eigen::Quaterniond> q(x_plus_delta + 3);
     p = _p + dp;
-    q = (_q * dp).normalized();
+    q = (_q * dq).normalized();
     return true;
 }
 bool PoseParameterization::ComputeJacobian(const double *x, double *jacobian) const {

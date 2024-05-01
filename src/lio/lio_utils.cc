@@ -2,6 +2,59 @@
 
 namespace ctlio::slam {
 
+State::State(const Eigen::Quaterniond &r, const Eigen::Vector3d &trans, const Eigen::Vector3d &vel,
+             const Eigen::Vector3d &bg, const Eigen::Vector3d &ba)
+    : rotation(r), translation(trans), velocity(vel), ba(ba), bg(bg) {
+}
+State::State(const State *state_temp, bool copy) {
+    rotation = state_temp->rotation;
+    translation = state_temp->translation;
+
+    rotation_begin = state_temp->rotation_begin;
+    translation_begin = state_temp->translation_begin;
+
+    velocity = state_temp->velocity;
+    ba = state_temp->ba;
+    bg = state_temp->bg;
+
+    velocity_begin = state_temp->velocity_begin;
+    ba_begin = state_temp->ba_begin;
+    bg_begin = state_temp->bg_begin;
+}
+
+void State::release() {
+}
+
+CloudFrame::CloudFrame(std::vector<point3D> &point_surf_, std::vector<point3D> &const_surf_, State *p_state) {
+    point_surf.insert(point_surf.end(), point_surf_.begin(), point_surf_.end());
+    const_surf.insert(const_surf.end(), const_surf_.begin(), const_surf_.end());
+
+    // p_state = p_state_;
+    p_state = new State(p_state, true);
+
+    success = true;
+}
+CloudFrame::CloudFrame(CloudFrame *p_cloud_frame) {
+    time_frame_begin = p_cloud_frame->time_frame_begin;
+    time_frame_end = p_cloud_frame->time_frame_end;
+    frame_id = p_cloud_frame->frame_id;
+
+    // p_state = p_cloud_frame->p_state;
+    p_state = new State(p_cloud_frame->p_state, true);
+    point_surf.insert(point_surf.end(), p_cloud_frame->point_surf.begin(), p_cloud_frame->point_surf.end());
+    const_surf.insert(const_surf.end(), p_cloud_frame->const_surf.begin(), p_cloud_frame->const_surf.end());
+
+    dt_offset = p_cloud_frame->dt_offset;
+
+    success = p_cloud_frame->success;
+}
+void CloudFrame::release() {
+    std::vector<point3D>().swap(point_surf);
+    std::vector<point3D>().swap(const_surf);
+
+    p_state = nullptr;
+}
+
 void transformPoint(MotionCompensation compensation, point3D &point_temp, Eigen::Quaterniond &q_begin,
                     Eigen::Quaterniond &q_end, Eigen::Vector3d &t_begin, Eigen::Vector3d &t_end,
                     Eigen::Matrix3d &R_imu_lidar, Eigen::Vector3d &t_imu_lidar) {
@@ -25,7 +78,7 @@ void transformPoint(MotionCompensation compensation, point3D &point_temp, Eigen:
     point_temp.point = R * (R_imu_lidar * point_temp.raw_point + t_imu_lidar) + t;
 }
 
-void gridSampling(std::vector<point3D> &frame, std::vector<point3D> &keypoints, double size_voxel_subsampling) {
+void gridSampling(const std::vector<point3D> &frame, std::vector<point3D> &keypoints, double size_voxel_subsampling) {
     keypoints.resize(0);
     std::vector<point3D> frame_sub;
     // copy一份frame

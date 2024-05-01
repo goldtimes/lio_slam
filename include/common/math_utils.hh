@@ -42,5 +42,6 @@ template <typename S>
 inline Eigen::Matrix<S, 3, 3> Mat3FromArray(const std::vector<S>& value) {
     Eigen::Matrix<S, 3, 3> mat3d;
     mat3d << value[0], value[1], value[2], value[3], value[4], value[5], value[6], value[7], value[8];
+    return mat3d;
 }
 }  // namespace ctlio::slam::math

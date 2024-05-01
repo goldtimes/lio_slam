@@ -10,7 +10,7 @@ Eigen::Vector3d CTLidarPlaneNormFactor::t_il;
 Eigen::Quaterniond CTLidarPlaneNormFactor::q_il;
 
 LidarPlaneNormFactor::LidarPlaneNormFactor(const Eigen::Vector3d& point_body, const Eigen::Vector3d& norm_vec,
-                                           double norm_offset, double weight = 1.0)
+                                           double norm_offset, double weight)
     : point_body_(point_body), norm_vector_(norm_vec), norm_offset_(norm_offset), weight_(weight) {
 }
 /**
@@ -202,6 +202,7 @@ bool VelocityConsistencyFactor::Evaluate(double const* const* parameters, double
             jacobian_veloctiy_bias_end(2, 2) = beta;
         }
     }
+    return true;
 }
 
 void TruncatedLoss::Evaluate(double s, double* rho) const {
