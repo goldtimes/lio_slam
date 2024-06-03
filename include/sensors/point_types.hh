@@ -140,7 +140,7 @@ struct PointXYZIRT_RS {
 }  // namespace rslidar_ros
 
 // clang-format off
-POINT_CLOUD_REGISTER_POINT_STRUCT(rslidar_ros::PointXYZIRT_LS,
+POINT_CLOUD_REGISTER_POINT_STRUCT(rslidar_ros::PointXYZIRT_RS,
                                   (float, x, x)(float, y, y)
                                   (float, z, z)
                                   (float, intensity,intensity)
