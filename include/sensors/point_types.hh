@@ -13,6 +13,9 @@ using PointCloudType = pcl::PointCloud<PointType>;
 using CloudPtr = PointCloudType::Ptr;
 using PointVec = std::vector<PointType, Eigen::aligned_allocator<PointType>>;
 using IndexVec = std::vector<int>;
+using PointNormalType = pcl::PointXYZINormal;
+using PointNormalCloud = pcl::PointCloud<PointNormalType>;
+using PointNormalVec = std::vector<PointNormalType, Eigen::aligned_allocator<PointNormalType>>;
 
 // 点云到Eigen vector的转换
 
