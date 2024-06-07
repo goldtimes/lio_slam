@@ -21,6 +21,7 @@ class MapBuilderRos {
     void imu_callback(const sensor_msgs::Imu& imu_message);
     void livox_callback(const livox_ros_driver::CustomMsgConstPtr& cloud_msg);
     void livox2pcl(const livox_ros_driver::CustomMsg::ConstPtr& livox_cloud, sensors::PointNormalCloud::Ptr& out_cloud);
+    bool syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& livox_datas);
 
    private:
     ros::NodeHandle& nh_;
@@ -44,5 +45,10 @@ class MapBuilderRos {
     double last_imu_timestamp;
     LivoxData livox_datas;
     double last_lidar_timestamp;
+
+    // 过滤点
+    int filter_num = 1;
+    //
+    double blind = 1.0;
 };
 }  // namespace lio

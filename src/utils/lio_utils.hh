@@ -20,10 +20,11 @@ struct LivoxData {
 };
 
 struct MeasureGroup {
+    bool lidar_pushed;
     double lidar_begin_time;
     double lidar_end_time;
     std::deque<sensors::IMU> imudatas;
-    sensors::CloudPtr lidar_cloud;
+    sensors::PointNormalCloud::Ptr lidar_cloud;
 };
 
 }  // namespace lio
