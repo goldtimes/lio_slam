@@ -4,6 +4,9 @@ project(lio_slam)
 SET(CMAKE_CXX_FLAGS "-std=c++17 -O3")
 add_compile_options(-std=c++17)
 
+message("=========${PROJECT_SOURCE_DIR}=============")
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+
 
 add_definitions(-DPROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 find_package(catkin REQUIRED COMPONENTS
@@ -18,7 +21,10 @@ find_package(PCL REQUIRED)
 # YAML CPP
 find_package(PkgConfig REQUIRED)
 find_package(Ceres REQUIRED)
+find_package(Glog REQUIRED)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
+
+
 
 catkin_package(
 #  INCLUDE_DIRS include
@@ -32,6 +38,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDEDIR}
+  ${GLOG_INCLOUDE_DIRS}
   src
 )
 
@@ -44,4 +51,6 @@ target_link_libraries(map_builder_node
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
+  glog
+  gflags
 )

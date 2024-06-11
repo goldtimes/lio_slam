@@ -11,11 +11,17 @@
 // }
 
 int main(int argc, char** argv) {
+    google::InitGoogleLogging(argv[0]);
+    google::InstallFailureSignalHandler();
+    // google::
+    FLAGS_stderrthreshold = google::INFO;
+    FLAGS_logtostderr = true;
     ros::init(argc, argv, "map_builder_node");
     ros::NodeHandle nh;
     tf2_ros::TransformBroadcaster tf_;
     // signal(SIGINT, signalHandler);
     lio::MapBuilderRos map_builder_ros(nh, tf_);
     map_builder_ros.run();
+    google::ShutdownGoogleLogging();
     return 0;
 }
