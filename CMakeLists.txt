@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(ieskf_slam)
+project(lio_slam)
 
 SET(CMAKE_CXX_FLAGS "-std=c++17 -O3")
 add_compile_options(-std=c++17)
@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   sensor_msgs
+  livox_ros_driver
 )
 set(CMAKE_BUILD_TYPE Release)
 
@@ -31,37 +32,16 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDEDIR}
-  src/ceres_pose_graph
+  src
 )
 
-
-SET(IESKF_SLAM_FILE 
-  src/modules/frontend/frontend.cc
-  src/ieskf/ieskf.cc
-  src/map/local_map.cc
-  src/modules/propagate.cc
+add_executable(map_builder_node  
+  src/map_builder_node.cc
+  src/mapping/map_builder_ros.cc
 )
 
-SET(FRONTEDN_ROS_WRAPPER
-  src/ros_wrapper/frontend_ros_wrapper.cc
-)
-
-add_executable(ieskf_node 
-  src/app/ieskf_node.cc
-  ${IESKF_SLAM_FILE}
-  ${FRONTEDN_ROS_WRAPPER}
-)
-
-target_link_libraries( ieskf_node
+target_link_libraries(map_builder_node
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
-)
-
-add_executable(pose_graph_3d 
-  src/ceres_pose_graph/pose_graph_3d.cc)
-
-target_link_libraries(pose_graph_3d 
-  ${CERES_LIBRARIES}
-  ${catkin_LIBRARIES}
 )

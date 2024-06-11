@@ -3,6 +3,10 @@
 #include "sensors/point_types.hh"
 
 namespace lio {
+
+MapBuilderRos::MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster& tf) : nh_(nh), tf_(tf) {
+    local_rate_ = std::make_shared<ros::Rate>(100);
+}
 void MapBuilderRos::imu_callback(const sensor_msgs::Imu& imu_message) {
     // 加锁
     std::lock_guard<std::mutex> data_lock(data_mutex_);
@@ -103,6 +107,14 @@ bool MapBuilderRos::syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& 
 }
 
 void MapBuilderRos::run() {
+    while (ros::ok) {
+        local_rate_->sleep();
+        ros::spinOnce();
+        if (!syncMeasure(imu_datas, livox_datas)) {
+            continue;
+        }
+    }
+    LOG(INFO) << "map builder thread exits";
 }
 
 }  // namespace lio

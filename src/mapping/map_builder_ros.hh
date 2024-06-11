@@ -11,9 +11,8 @@ namespace lio {
 class MapBuilderRos {
    public:
     MapBuilderRos() = default;
-    MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster& tf) : nh_(nh), tf_(tf) {
-    }
-    ~MapBuilderRos();
+    MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster& tf);
+    ~MapBuilderRos() = default;
 
     void run();
 
@@ -50,5 +49,8 @@ class MapBuilderRos {
     int filter_num = 1;
     //
     double blind = 1.0;
+
+    // rate
+    std::shared_ptr<ros::Rate> local_rate_;
 };
 }  // namespace lio
