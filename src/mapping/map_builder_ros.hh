@@ -22,6 +22,9 @@ class MapBuilderRos {
     void livox2pcl(const livox_ros_driver::CustomMsg::ConstPtr& livox_cloud, sensors::PointNormalCloud::Ptr& out_cloud);
     bool syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& livox_datas);
 
+    void init_params();
+    void init_sub_pub();
+
    private:
     ros::NodeHandle& nh_;
     tf2_ros::TransformBroadcaster& tf_;
@@ -31,6 +34,8 @@ class MapBuilderRos {
 
     ros::Subscriber imu_sub_;
     ros::Subscriber cloud_sub_;
+    std::string imu_topic_;
+    std::string livox_topic_;
 
     ros::Publisher body_cloud_pub_;
     ros::Publisher local_cloud_pub_;
