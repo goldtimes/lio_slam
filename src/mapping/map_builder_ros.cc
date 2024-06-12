@@ -89,10 +89,10 @@ void MapBuilderRos::imu_callback(const sensor_msgs::Imu& imu_message) {
     if (imu_timestamp < last_imu_timestamp) {
         ROS_WARN("imu loop back, clear buffer, last_timestamp: %f  current_timestamp: %f", last_imu_timestamp,
                  imu_timestamp);
-        imu_datas.clear();
+        imu_queue_.clear();
     }
     last_imu_timestamp = imu_timestamp;
-    imu_datas.push_back(imu);
+    imu_queue_.push_back(imu);
 }
 
 void MapBuilderRos::livox_callback(const livox_ros_driver::CustomMsgConstPtr& livox_cloud_msg) {
@@ -145,6 +145,7 @@ void MapBuilderRos::livox2pcl(const livox_ros_driver::CustomMsg::ConstPtr& livox
 bool MapBuilderRos::syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& livox_datas) {
     // 1. 数据不为空
     if (imu_queue.empty() || livox_datas.clouds_buff.empty()) {
+        // std::cerr << "imu or lidar empty" << std::endl;
         return false;
     }
     // 2. push lidar
@@ -160,7 +161,10 @@ bool MapBuilderRos::syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& 
         return false;
     }
     double imu_time = imu_queue.front().timestamp_;
+    std::deque<sensors::IMU> imu_datas;
     imu_datas.clear();
+    ROS_DEBUG("imu_time: %f", imu_time);
+
     while (!imu_queue.empty() && (imu_time < measure_group_.lidar_end_time)) {
         imu_time = imu_queue.front().timestamp_;
         if (imu_time > measure_group_.lidar_end_time) {
@@ -174,16 +178,22 @@ bool MapBuilderRos::syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& 
     measure_group_.lidar_pushed = false;
     measure_group_.imudatas.clear();
     measure_group_.imudatas.insert(measure_group_.imudatas.end(), imu_datas.begin(), imu_datas.end());
+    ROS_DEBUG("imu datas: %d", measure_group_.imudatas.size());
+    ROS_DEBUG("lidar_begin_time: %f", measure_group_.lidar_begin_time);
+    ROS_DEBUG("lidar_end_time: %f", measure_group_.lidar_end_time);
     return true;
 }
 
 void MapBuilderRos::run() {
-    while (ros::ok) {
+    while (ros::ok()) {
         local_rate_->sleep();
         ros::spinOnce();
-        // if (!syncMeasure(imu_datas, livox_datas)) {
-        //     continue;
-        // }
+        if (!syncMeasure(imu_queue_, livox_datas)) {
+            continue;
+        }
+        // 时间同步ok
+        // 将同步的数据放到lio中
+        // 可视化发布
     }
     std::cout << "map builder thread exits" << std::endl;
 }

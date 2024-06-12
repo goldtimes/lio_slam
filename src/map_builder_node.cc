@@ -1,3 +1,5 @@
+#include <gflags/gflags.h>
+#include <glog/logging.h>
 #include <ros/ros.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <csignal>

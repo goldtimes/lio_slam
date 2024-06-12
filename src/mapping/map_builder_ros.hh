@@ -45,7 +45,7 @@ class MapBuilderRos {
     // 处理数据时的锁对象
     std::mutex data_mutex_;
     // 存放imu的数据和存放点云的数据
-    std::deque<sensors::IMU> imu_datas;
+    std::deque<sensors::IMU> imu_queue_;
     double last_imu_timestamp;
     LivoxData livox_datas;
     double last_lidar_timestamp;
