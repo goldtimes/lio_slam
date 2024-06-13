@@ -86,12 +86,12 @@ void MapBuilderRos::imu_callback(const sensor_msgs::Imu& imu_message) {
                          imu_message.angular_velocity.z);
     double imu_timestamp = imu_message.header.stamp.toSec();
     sensors::IMU imu(imu_timestamp, acc, gyro);
-    if (imu_timestamp < last_imu_timestamp) {
-        ROS_WARN("imu loop back, clear buffer, last_timestamp: %f  current_timestamp: %f", last_imu_timestamp,
+    if (imu_timestamp < last_received_imu_timestamp) {
+        ROS_WARN("imu loop back, clear buffer, last_timestamp: %f  current_timestamp: %f", last_received_imu_timestamp,
                  imu_timestamp);
         imu_queue_.clear();
     }
-    last_imu_timestamp = imu_timestamp;
+    last_received_imu_timestamp = imu_timestamp;
     imu_queue_.push_back(imu);
 }
 
@@ -99,13 +99,13 @@ void MapBuilderRos::livox_callback(const livox_ros_driver::CustomMsgConstPtr& li
     // LOG(INFO) << "livox_callback" << std::endl;
     std::lock_guard<std::mutex> data_lock(data_mutex_);
     double lidar_timestamp = livox_cloud_msg->header.stamp.toSec();
-    if (lidar_timestamp < last_lidar_timestamp) {
-        ROS_WARN("lidar loop back, clear buffer, last_timestamp: %f  current_timestamp: %f", last_lidar_timestamp,
-                 lidar_timestamp);
+    if (lidar_timestamp < last_received_lidar_timestamp) {
+        ROS_WARN("lidar loop back, clear buffer, last_timestamp: %f  current_timestamp: %f",
+                 last_received_lidar_timestamp, lidar_timestamp);
         livox_datas.clouds_buff.clear();
         livox_datas.time_buffer.clear();
     }
-    last_lidar_timestamp = lidar_timestamp;
+    last_received_lidar_timestamp = lidar_timestamp;
     sensors::PointNormalCloud::Ptr cloud(new sensors::PointNormalCloud());
     livox2pcl(livox_cloud_msg, cloud);
     livox_datas.clouds_buff.push_back(cloud);
@@ -157,19 +157,25 @@ bool MapBuilderRos::syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& 
         measure_group_.lidar_pushed = true;
     }
     // 3. 时间同步
-    if (last_imu_timestamp < measure_group_.lidar_end_time) {
+    if (last_received_lidar_timestamp < measure_group_.lidar_end_time) {
         return false;
     }
     double imu_time = imu_queue.front().timestamp_;
     std::deque<sensors::IMU> imu_datas;
     imu_datas.clear();
-    ROS_DEBUG("imu_time: %f", imu_time);
+    ROS_INFO("lidar_begin_time: %f", measure_group_.lidar_begin_time);
 
     while (!imu_queue.empty() && (imu_time < measure_group_.lidar_end_time)) {
         imu_time = imu_queue.front().timestamp_;
         if (imu_time > measure_group_.lidar_end_time) {
             break;
         }
+        if (imu_time < measure_group_.lidar_begin_time) {
+            imu_queue.pop_front();
+            continue;
+        }
+        ROS_INFO("imu_time: %f", imu_time);
+
         imu_datas.push_back(imu_queue.front());
         imu_queue.pop_front();
     }
@@ -178,9 +184,9 @@ bool MapBuilderRos::syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& 
     measure_group_.lidar_pushed = false;
     measure_group_.imudatas.clear();
     measure_group_.imudatas.insert(measure_group_.imudatas.end(), imu_datas.begin(), imu_datas.end());
+    ROS_INFO("lidar_end_time: %f", measure_group_.lidar_end_time);
     ROS_DEBUG("imu datas: %d", measure_group_.imudatas.size());
-    ROS_DEBUG("lidar_begin_time: %f", measure_group_.lidar_begin_time);
-    ROS_DEBUG("lidar_end_time: %f", measure_group_.lidar_end_time);
+
     return true;
 }
 
@@ -191,7 +197,8 @@ void MapBuilderRos::run() {
         if (!syncMeasure(imu_queue_, livox_datas)) {
             continue;
         }
-        // 时间同步ok
+        // 时间同步ok,同步的数据放在了measure_group中
+        // 那么接下来就是imu的初始化和点云的去畸变,发布去畸变后的点云
         // 将同步的数据放到lio中
         // 可视化发布
     }

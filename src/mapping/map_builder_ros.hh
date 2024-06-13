@@ -46,9 +46,9 @@ class MapBuilderRos {
     std::mutex data_mutex_;
     // 存放imu的数据和存放点云的数据
     std::deque<sensors::IMU> imu_queue_;
-    double last_imu_timestamp;
+    double last_received_imu_timestamp;
     LivoxData livox_datas;
-    double last_lidar_timestamp;
+    double last_received_lidar_timestamp;
 
     // 过滤点
     int filter_num = 1;

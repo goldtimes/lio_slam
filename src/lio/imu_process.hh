@@ -1,5 +1,5 @@
 #pragma once
-#include "ieskf/ieskf.hpp"
+#include "ieskf_fastlio/ieskf_fastlio.hh"
 #include "sensors/imu.hh"
 #include "utils/lio_utils.hh"
 
@@ -7,17 +7,18 @@ namespace lio {
 
 struct State {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Eigen::Vector3d pos;
+    Eigen::Vector3d acc;
+    Eigen::Vector3d gyro;
     Eigen::Matrix3d rot;
+    Eigen::Vector3d pos;
     Eigen::Vector3d vel;
-    Eigen::Vector3d bg;
-    Eigen::Vector3d ba;
 
-    State(double t, const Eigen::Vector3d& p, const Eigen::Matrix3d& r, const Eigen::Vector3d& v,
-          const Eigen::Vector3d& bias_g, const Eigen::Vector3d& bias_a)
-        : timestamp(t), pos(p), rot(r), vel(v), bg(bias_g), ba(bias_a) {
+    State(double t, const Eigen::Vector3d& a, const Eigen::Vector3d& g, const Eigen::Matrix3d& r,
+          const Eigen::Vector3d& p, const Eigen::Vector3d& v)
+        : offset(t), pos(p), rot(r), vel(v), acc(a), gyro(g) {
     }
-    double timestamp;
+    // 和lidar_begin_time的offset
+    double offset;
 };
 
 /**
@@ -45,7 +46,9 @@ class ImuProcess {
 
     bool init_flag_ = false;
     bool align_gravity = true;
-
+    sensors::IMU last_imu_;
+    Eigen::Vector3d last_acc_;
+    Eigen::Vector3d last_gyro_;
     std::vector<State> imu_state_;
     double last_lidar_time_end_;
     // 加速度的平均值
@@ -57,5 +60,7 @@ class ImuProcess {
     Eigen::Vector3d acc_sigma;
     Eigen::Vector3d gyro_bias_sigma;
     Eigen::Vector3d acc_bias_sigma;
+    // 预测的系统噪声
+    kf::Matrix12d Q_;
 };
 }  // namespace lio
