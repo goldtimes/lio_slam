@@ -83,7 +83,8 @@ class IGLIOBuilder {
 
     sensors::PointNormalCloud::Ptr transformToWorld(const sensors::PointNormalCloud::Ptr cloud);
     sensors::PointNormalCloud::Ptr cloudUndistortedBody();
-    sensors::PointNormalCloud::Ptr cloudUndistortedlidar();
+    // sensors::PointNormalCloud::Ptr cloudUndistortedlidar();
+    sensors::PointNormalCloud::Ptr cloudWorld();
 
     void reset();
 

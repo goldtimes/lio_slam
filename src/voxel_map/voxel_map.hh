@@ -81,6 +81,10 @@ class VoxelMap {
     bool getCentroidAndConvariance(size_t hash_idx, Eigen::Vector3d& centroid, Eigen::Matrix3d& conv);
     bool getCentroidAndConvariance(const Eigen::Vector3d& point, Eigen::Vector3d& centroid, Eigen::Matrix3d& conv);
 
+    std::vector<Eigen::Vector3d>& searchRange() {
+        return nearby_;
+    }
+
    private:
     NEARBY mode_ = NEARBY::NEARBY7;
     double resolution_ = 1.0;

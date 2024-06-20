@@ -1,6 +1,20 @@
 #include "lio/iglio_builder.hh"
 
 namespace lio {
+
+inline void CauchyLossFunction(const double error, const double delta, Eigen::Vector3d& rho) {
+    double delta2 = delta * delta;
+    if (error <= delta2) {
+        rho[0] = error;
+        rho[1] = 1.0;
+        rho[2] = 0.0;
+    } else {
+        double sqrt = std::sqrt(error);
+        rho[0] = 2 * sqrt * delta - delta2;
+        rho[1] = delta / sqrt;
+        rho[2] = -0.5 / rho[1] / error;
+    }
+}
 IGLIOBuilder::IGLIOBuilder(IGLIOParams& params) : params_(params) {
     // 初始化ieskf
     ieskf_ = std::make_shared<kf::IESKF>(params_.ieskf_max_iterations);
@@ -26,6 +40,9 @@ IGLIOBuilder::IGLIOBuilder(IGLIOParams& params) : params_(params) {
 
     point_array_lidar_.reserve(params_.max_points_in_scan);
     // cached_flag_
+    cached_flag_.reserve(params_.max_points_in_scan);
+    fastlio_corr_cached_.reserve(params_.max_points_in_scan);
+    gicp_corr_cached_.reserve(params_.max_points_in_scan * voxel_map_->searchRange().size());
     // fastlio_corr_cached_
     // gicp_corr_cached_
     cloud_body_.reset(new sensors::PointNormalCloud());
@@ -104,6 +121,59 @@ void IGLIOBuilder::sharedUpdateFunc(kf::State& state, kf::SharedState& shared_st
 }
 
 void IGLIOBuilder::gicpConstraint(kf::State& state, kf::SharedState& shared_state) {
+    int size = point_array_lidar_.size();
+    if (shared_state.iter_num < 3) {
+        gicp_corr_cached_.clear();
+        Eigen::Vector3d mean_B = Eigen::Vector3d::Zero();
+        Eigen::Matrix3d cov_B = Eigen::Matrix3d::Zero();
+        for (int i = 0; i < size; ++i) {
+            Eigen::Vector3d point_lidar = point_array_lidar_[i].point;
+            Eigen::Vector3d point_body = state.rot_ext * point_body + state.pos_ext;
+            Eigen::Vector3d point_world = state.rot * point_body + state.pos;
+            Eigen::Matrix3d cov_A = point_array_lidar_[i].point_cov;
+            // 最近邻体素
+            for (Eigen::Vector3d& near : voxel_map_->searchRange()) {
+                Eigen::Vector3d pw_near = point_world + near;
+                if (voxel_map_->getCentroidAndConvariance(pw_near, mean_B, cov_A) &&
+                    voxel_map_->isSameGrid(pw_near, mean_B)) {
+                    gicp_corr_cached_.emplace_back(point_lidar, mean_B, cov_A, cov_B);
+                }
+            }
+        }
+    }
+    shared_state.H.setZero();
+    shared_state.b.setZero();
+    Eigen::Matrix<double, 3, 12> J;
+    for (int i = 0; i < gicp_corr_cached_.size(); ++i) {
+        GICPCorrespond& gicp_error = gicp_corr_cached_[i];
+        Eigen::Vector3d p_lidar = gicp_error.meanA;
+        Eigen::Vector3d p_body = state.rot_ext * p_lidar + state.pos_ext;
+        Eigen::Vector3d p_world = state.rot * p_body + state.pos;
+        Eigen::Matrix3d omega = (gicp_error.covB + state.rot * state.rot_ext * gicp_error.covA *
+                                                       state.rot_ext.transpose() * state.rot.transpose())
+                                    .inverse();
+        Eigen::Vector3d error = gicp_error.meanB - p_world;
+        double chi2_error = error.transpose() * omega * error;
+        if (shared_state.iter_num > 2 && chi2_error > 7.815) {
+            continue;
+        }
+        Eigen::Vector3d rho;
+        CauchyLossFunction(chi2_error, 10.0, rho);
+        J.setZero();
+        J.block<3, 3>(0, 0) = -Eigen::Matrix3d::Identity();
+        J.block<3, 3>(0, 3) = state.rot * Sophus::SO3d::hat(p_body);
+        if (params_.extrisic_est_en) {
+            J.block<3, 3>(0, 6) = state.rot * state.rot_ext * Sophus::SO3d::hat(p_lidar);
+            J.block<3, 3>(0, 9) = -state.rot;
+        }
+        Eigen::Matrix3d robust_information_matrix =
+            params_.point2plane_gain * (rho[1] * omega + 2.0 * rho[2] * omega * error * error.transpose() * omega);
+        shared_state.H += J.transpose() * robust_information_matrix * J;
+        shared_state.b += params_.plane2plane_gain * rho[1] * J.transpose() * omega * error;
+    }
+    if (gicp_corr_cached_.size() < 1) {
+        std::cout << "NO EFFECTIVE POINTS!" << std::endl;
+    }
 }
 // 和fastlio一样 点面的残差
 void IGLIOBuilder::fastlioConstraint(kf::State& state, kf::SharedState& shared_state) {
@@ -170,6 +240,15 @@ void IGLIOBuilder::fastlioConstraint(kf::State& state, kf::SharedState& shared_s
     if (effect_feat_num < 1) {
         std::cout << "NO_EFFECTIVE POINTS" << std::endl;
     }
+}
+
+sensors::PointNormalCloud::Ptr IGLIOBuilder::cloudUndistortedBody() {
+    sensors::PointNormalCloud::Ptr cloud_body(new sensors::PointNormalCloud());
+    pcl::transformPointCloud(*cloud_lidar_, *cloud_body, ieskf_->x().pos_ext, Eigen::Quaterniond(ieskf_->x().rot_ext));
+    return cloud_body;
+}
+sensors::PointNormalCloud::Ptr IGLIOBuilder::cloudWorld() {
+    return transformToWorld(cloud_lidar_);
 }
 
 void IGLIOBuilder::reset() {
