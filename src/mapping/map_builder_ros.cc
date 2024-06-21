@@ -165,7 +165,7 @@ bool MapBuilderRos::syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& 
     double imu_time = imu_queue.front().timestamp_;
     std::deque<sensors::IMU> imu_datas;
     imu_datas.clear();
-    ROS_INFO("lidar_begin_time: %f", measure_group_.lidar_begin_time);
+    // ROS_INFO("lidar_begin_time: %f", measure_group_.lidar_begin_time);
 
     while (!imu_queue.empty() && (imu_time < measure_group_.lidar_end_time)) {
         imu_time = imu_queue.front().timestamp_;
@@ -176,7 +176,7 @@ bool MapBuilderRos::syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& 
             imu_queue.pop_front();
             continue;
         }
-        ROS_INFO("imu_time: %f", imu_time);
+        // ROS_INFO("imu_time: %f", imu_time);
 
         imu_datas.push_back(imu_queue.front());
         imu_queue.pop_front();
@@ -186,8 +186,8 @@ bool MapBuilderRos::syncMeasure(std::deque<sensors::IMU>& imu_queue, LivoxData& 
     measure_group_.lidar_pushed = false;
     measure_group_.imudatas.clear();
     measure_group_.imudatas.insert(measure_group_.imudatas.end(), imu_datas.begin(), imu_datas.end());
-    ROS_INFO("lidar_end_time: %f", measure_group_.lidar_end_time);
-    ROS_DEBUG("imu datas: %d", measure_group_.imudatas.size());
+    // ROS_INFO("lidar_end_time: %f", measure_group_.lidar_end_time);
+    // ROS_DEBUG("imu datas: %d", measure_group_.imudatas.size());
 
     return true;
 }
