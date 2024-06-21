@@ -49,6 +49,8 @@ bool ImuProcess::init(const MeasureGroup& meas) {
         return init_flag_;
     }
     init_flag_ = true;
+    ROS_INFO("meas_acc: %f, %f, %f", mean_acc(0), mean_acc(1), mean_acc(2));
+    ROS_INFO("mean_gyro: %f, %f, %f", mean_gyro(0), mean_gyro(1), mean_gyro(2));
     // 设置ieskf的初始化状态
     kf::State state = ieskf_->x();
     state.rot_ext = rot_ext;
@@ -88,6 +90,7 @@ bool ImuProcess::operator()(const MeasureGroup& meas, sensors::PointNormalCloud:
 
 // fastlio中 imu的前向传播和后向传播去畸变
 void ImuProcess::undistortPointCloud(const MeasureGroup& group, sensors::PointNormalCloud::Ptr& out) {
+    ROS_INFO("undistort_point_cloud");
     // 静态初始化完成之后才开始去畸变
     // 需要计算一系列的imu姿态
     std::deque<sensors::IMU> imu_tmps(group.imudatas.begin(), group.imudatas.end());

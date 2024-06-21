@@ -91,7 +91,7 @@ void MapBuilderRos::imu_callback(const sensor_msgs::Imu& imu_message) {
     Eigen::Vector3d gyro(imu_message.angular_velocity.x, imu_message.angular_velocity.y,
                          imu_message.angular_velocity.z);
     double imu_timestamp = imu_message.header.stamp.toSec();
-    sensors::IMU imu(imu_timestamp, acc, gyro);
+    sensors::IMU imu(imu_timestamp, gyro, acc);
     if (imu_timestamp < last_received_imu_timestamp) {
         ROS_WARN("imu loop back, clear buffer, last_timestamp: %f  current_timestamp: %f", last_received_imu_timestamp,
                  imu_timestamp);
@@ -207,10 +207,12 @@ void MapBuilderRos::run() {
         local_rate_->sleep();
         ros::spinOnce();
         // 时间同步ok,同步的数据放在了measure_group中
-
+        tic_toc.tic();
         if (!syncMeasure(imu_queue_, livox_datas)) {
             continue;
         }
+        double sync_time = tic_toc.toc();
+        ROS_INFO("syncMeasuer: %6f", sync_time);
         // 那么接下来就是imu的初始化和点云的去畸变,发布去畸变后的点云
         // 将同步的数据放到lio中
         lio_buidler_->mapping(measure_group_);

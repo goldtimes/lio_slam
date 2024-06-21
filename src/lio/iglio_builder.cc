@@ -60,7 +60,9 @@ IGLIOBuilder::IGLIOBuilder(IGLIOParams& params) : params_(params) {
 void IGLIOBuilder::mapping(const MeasureGroup& meas) {
     // 先imu初始化
     // 去畸变
-    imu_process_ptr_->operator()(meas, cloud_lidar_);
+    if (!imu_process_ptr_->operator()(meas, cloud_lidar_)) {
+        return;
+    }
     if (lio_status_ == LIO_STATUS::INITIALIZE) {
         // 第一帧初始化
         cloud_world_ = transformToWorld(cloud_lidar_);

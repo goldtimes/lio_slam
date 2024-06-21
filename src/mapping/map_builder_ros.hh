@@ -7,6 +7,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <mutex>
 #include "lio/iglio_builder.hh"
+#include "timer/tic_toc.hh"
 #include "utils/lio_utils.hh"
 
 namespace lio {
@@ -71,5 +72,7 @@ class MapBuilderRos {
 
     // rate
     std::shared_ptr<ros::Rate> local_rate_;
+
+    Timer::TicToc tic_toc;
 };
 }  // namespace lio
