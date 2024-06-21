@@ -73,6 +73,10 @@ void MapBuilderRos::init_params() {
 void MapBuilderRos::init_sub_pub() {
     imu_sub_ = nh_.subscribe(imu_topic_, 1000, &MapBuilderRos::imu_callback, this);
     cloud_sub_ = nh_.subscribe(livox_topic_, 1000, &MapBuilderRos::livox_callback, this);
+
+    lidar_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("lidar_cloud", 10);
+    body_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("body_cloud", 10);
+    local_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("local_cloud", 10);
     odom_pub_ = nh_.advertise<nav_msgs::Odometry>("slam_odom", 1000);
     local_path_pub_ = nh_.advertise<nav_msgs::Path>("local_path", 1000);
     // global_path_pub_ = nh_.advertise<nav_msgs::Path>("local_path", 1000);
@@ -110,6 +114,12 @@ void MapBuilderRos::livox_callback(const livox_ros_driver::CustomMsgConstPtr& li
     last_received_lidar_timestamp = lidar_timestamp;
     sensors::PointNormalCloud::Ptr cloud(new sensors::PointNormalCloud());
     livox2pcl(livox_cloud_msg, cloud);
+    // pub cloud
+    sensor_msgs::PointCloud2 cloud_lidar;
+    pcl::toROSMsg(*cloud, cloud_lidar);
+    cloud_lidar.header.frame_id = "lidar";
+    cloud_lidar.header.stamp = ros::Time().fromSec(lidar_timestamp);
+    lidar_cloud_pub_.publish(cloud_lidar);
     livox_datas.clouds_buff.push_back(cloud);
     livox_datas.time_buffer.push_back(lidar_timestamp);
 }

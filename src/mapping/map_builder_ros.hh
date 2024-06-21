@@ -42,6 +42,7 @@ class MapBuilderRos {
     std::string imu_topic_;
     std::string livox_topic_;
 
+    ros::Publisher lidar_cloud_pub_;
     ros::Publisher body_cloud_pub_;
     ros::Publisher local_cloud_pub_;
     ros::Publisher odom_pub_;
