@@ -19,9 +19,13 @@ IGLIOBuilder::IGLIOBuilder(IGLIOParams& params) : params_(params) {
     // 初始化ieskf
     ieskf_ = std::make_shared<kf::IESKF>(params_.ieskf_max_iterations);
     // Todo
+    ieskf_->set_share_function(
+        [this](kf::State& state, kf::SharedState& shared_state) { sharedUpdateFunc(state, shared_state); });
     // 初始化 imu_process
     imu_process_ptr_ = std::make_shared<ImuProcess>(ieskf_);
     // 设置imu_process的系统噪声
+    imu_process_ptr_->setCov(params_.imu_gyro_cov, params_.imu_acc_cov, params_.imu_gyro_bias_cov,
+                             params_.imu_acc_bias_cov);
     Eigen::Matrix3d rot_ext;  // T_I_L
     Eigen::Vector3d trans_ext;
     // clang-format off
@@ -32,6 +36,8 @@ IGLIOBuilder::IGLIOBuilder(IGLIOParams& params) : params_(params) {
     // clang-format on
 
     // 设置imu_process的内参和外参
+    imu_process_ptr_->setExtParams(rot_ext, trans_ext);
+    imu_process_ptr_->setAlignGravity(params.align_gravity);
 
     // voxel map
     fast_voxel_map_ = std::make_shared<FastVoxelMap>(params_.scan_resolution);
@@ -41,10 +47,10 @@ IGLIOBuilder::IGLIOBuilder(IGLIOParams& params) : params_(params) {
     point_array_lidar_.reserve(params_.max_points_in_scan);
     // cached_flag_
     cached_flag_.reserve(params_.max_points_in_scan);
-    fastlio_corr_cached_.reserve(params_.max_points_in_scan);
-    gicp_corr_cached_.reserve(params_.max_points_in_scan * voxel_map_->searchRange().size());
     // fastlio_corr_cached_
+    fastlio_corr_cached_.reserve(params_.max_points_in_scan);
     // gicp_corr_cached_
+    gicp_corr_cached_.reserve(params_.max_points_in_scan * voxel_map_->searchRange().size());
     cloud_body_.reset(new sensors::PointNormalCloud());
     cloud_lidar_.reset(new sensors::PointNormalCloud());
     cloud_world_.reset(new sensors::PointNormalCloud());
@@ -54,6 +60,7 @@ IGLIOBuilder::IGLIOBuilder(IGLIOParams& params) : params_(params) {
 void IGLIOBuilder::mapping(const MeasureGroup& meas) {
     // 先imu初始化
     // 去畸变
+    imu_process_ptr_->operator()(meas, cloud_lidar_);
     if (lio_status_ == LIO_STATUS::INITIALIZE) {
         // 第一帧初始化
         cloud_world_ = transformToWorld(cloud_lidar_);

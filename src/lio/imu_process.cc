@@ -14,6 +14,26 @@ ImuProcess::ImuProcess(const std::shared_ptr<kf::IESKF>& kf)
       pos_ext(Eigen::Vector3d::Zero()) {
 }
 
+void ImuProcess::setExtParams(Eigen::Matrix3d& rot_ext, Eigen::Vector3d& pos_ext) {
+    rot_ext = rot_ext;
+    pos_ext = pos_ext;
+}
+
+void ImuProcess::setCov(Eigen::Vector3d gyro_cov, Eigen::Vector3d acc_cov, Eigen::Vector3d gyro_bias_cov,
+                        Eigen::Vector3d acc_bias_cov) {
+    gyro_sigma = gyro_cov;
+    acc_sigma = acc_cov;
+    gyro_bias_sigma = gyro_bias_cov;
+    acc_bias_sigma = acc_bias_cov;
+}
+
+void ImuProcess::setCov(double gyro_cov, double acc_cov, double gyro_bias_cov, double acc_bias_cov) {
+    gyro_sigma = Eigen::Vector3d(gyro_cov, gyro_cov, gyro_cov);
+    acc_sigma = Eigen::Vector3d(acc_cov, acc_cov, acc_cov);
+    gyro_bias_sigma = Eigen::Vector3d(gyro_bias_cov, gyro_bias_cov, gyro_bias_cov);
+    acc_bias_sigma = Eigen::Vector3d(acc_bias_cov, acc_bias_cov, acc_bias_cov);
+}
+
 bool ImuProcess::init(const MeasureGroup& meas) {
     if (meas.imudatas.empty()) {
         return init_flag_;
@@ -36,13 +56,34 @@ bool ImuProcess::init(const MeasureGroup& meas) {
     state.bg = mean_gyro;
     // 重力对齐,初始为非水平放置的情况
     if (align_gravity) {
+        state.rot =
+            Eigen::Quaterniond::FromTwoVectors((-mean_acc).normalized(), Eigen::Vector3d(0.0, 0.0, -1.0)).matrix();
+        state.initG(Eigen::Vector3d(0.0, 0.0, -1.0));
     } else {
+        state.initG(-mean_acc);
     }
-    // ieskf_->chang_x(state);
+    ieskf_->change_x(state);
+    // 初始化噪声的协方差矩阵
+    kf::Matrix23d init_P = ieskf_->P();
+    init_P.setIdentity();
+    init_P(6, 6) = init_P(7, 7) = init_P(8, 8) = 0.00001;
+    init_P(9, 9) = init_P(10, 10) = init_P(11, 11) = 0.00001;
+    init_P(15, 15) = init_P(16, 16) = init_P(17, 17) = 0.0001;
+    init_P(18, 18) = init_P(19, 19) = init_P(20, 20) = 0.001;
+    init_P(21, 21) = init_P(22, 22) = 0.00001;
+    ieskf_->change_P(init_P);
 
     // 初始化噪声的协方差矩阵
     last_imu_ = meas.imudatas.back();
     return init_flag_;
+}
+bool ImuProcess::operator()(const MeasureGroup& meas, sensors::PointNormalCloud::Ptr& out) {
+    if (!init_flag_) {
+        init(meas);
+        return false;
+    }
+    undistortPointCloud(meas, out);
+    return true;
 }
 
 // fastlio中 imu的前向传播和后向传播去畸变

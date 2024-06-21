@@ -32,7 +32,15 @@ class ImuProcess {
 
     void undistortPointCloud(const MeasureGroup& group, sensors::PointNormalCloud::Ptr& out);
 
+    void setExtParams(Eigen::Matrix3d& rot_ext, Eigen::Vector3d& pos_ext);
+    void setCov(Eigen::Vector3d gyro_cov, Eigen::Vector3d acc_cov, Eigen::Vector3d gyro_bias_cov,
+                Eigen::Vector3d acc_bias_cov);
+    void setCov(double gyro_cov, double acc_cov, double gyro_bias_cov, double acc_bias_cov);
     void reset();
+    bool operator()(const MeasureGroup& meas, sensors::PointNormalCloud::Ptr& out);
+    void setAlignGravity(bool flag) {
+        align_gravity = flag;
+    }
 
    private:
     int init_count_;
