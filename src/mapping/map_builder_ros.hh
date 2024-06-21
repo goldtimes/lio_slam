@@ -1,10 +1,12 @@
 #pragma once
 #include <glog/logging.h>
 #include <livox_ros_driver/CustomMsg.h>
+#include <nav_msgs/Path.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <mutex>
+#include "lio/iglio_builder.hh"
 #include "utils/lio_utils.hh"
 
 namespace lio {
@@ -24,6 +26,9 @@ class MapBuilderRos {
 
     void init_params();
     void init_sub_pub();
+    void publishOdom(const nav_msgs::Odometry& odom);
+    void publishLocalPath(const nav_msgs::Path& local_path);
+    void publishCloud(const ros::Publisher& cloud_pub, const sensor_msgs::PointCloud2& cloud);
 
    private:
     ros::NodeHandle& nh_;
@@ -39,6 +44,10 @@ class MapBuilderRos {
 
     ros::Publisher body_cloud_pub_;
     ros::Publisher local_cloud_pub_;
+    ros::Publisher odom_pub_;
+    ros::Publisher local_path_pub_;
+    ros::Publisher global_path_pub_;
+    nav_msgs::Path local_path_;
 
     // 时间同步对象
     MeasureGroup measure_group_;
@@ -49,11 +58,15 @@ class MapBuilderRos {
     double last_received_imu_timestamp;
     LivoxData livox_datas;
     double last_received_lidar_timestamp;
-
+    std::shared_ptr<lio::IGLIOBuilder> lio_buidler_;
+    IGLIOParams lio_params_;
     // 过滤点
     int filter_num = 1;
     //
     double blind = 1.0;
+
+    kf::State current_navi_state_;
+    double current_time_;
 
     // rate
     std::shared_ptr<ros::Rate> local_rate_;

@@ -43,7 +43,7 @@ void Grid::updateConv() {
         return;
     }
     // 更新协方差
-    conv = (conv_sum - point_num * centroid.transpose()) / (static_cast<double>(point_num) - 1);
+    conv = (conv_sum - points_sum * centroid.transpose()) / (static_cast<double>(point_num) - 1);
     is_valid = true;
     Eigen::JacobiSVD<Eigen::Matrix3d> svd(conv, Eigen::ComputeFullU | Eigen::ComputeFullV);
     Eigen::Vector3d val(1, 1, 1e-3);

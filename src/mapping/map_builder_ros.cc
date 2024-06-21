@@ -7,15 +7,15 @@ namespace lio {
 
 MapBuilderRos::MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster& tf) : nh_(nh), tf_(tf) {
     LOG(INFO) << "MapBuilderRos";
-    // local_rate_ = std::make_shared<ros::Rate>(100);
     init_params();
     init_sub_pub();
+    lio_buidler_ = std::make_shared<IGLIOBuilder>(lio_params_);
 }
 
 void MapBuilderRos::init_params() {
     nh_.param<std::string>("map_frame", global_frame_, "map");
-    nh_.param<std::string>("local_frame", local_frame_, "local");
-    nh_.param<std::string>("body_frame", body_frame_, "body");
+    nh_.param<std::string>("local_frame", local_frame_, "odom");
+    nh_.param<std::string>("body_frame", body_frame_, "imu");
     nh_.param<std::string>("imu_topic", imu_topic_, "/livox/imu");
     nh_.param<std::string>("livox_topic", livox_topic_, "/livox/lidar");
     double local_rate, loop_rate;
@@ -23,40 +23,39 @@ void MapBuilderRos::init_params() {
     nh_.param<double>("loop_rate", loop_rate, 1.0);
     local_rate_ = std::make_shared<ros::Rate>(local_rate);
     // loop_rate_ = std::make_shared<ros::Rate>(loop_rate);
-    // nh_.param<double>("lio_builder/scan_resolution", lio_params_.scan_resolution, 0.5);
-    // nh_.param<double>("lio_builder/map_resolution", lio_params_.map_resolution, 0.5);
-    // nh_.param<double>("lio_builder/point2plane_gain", lio_params_.point2plane_gain, 1000.0);
-    // nh_.param<double>("lio_builder/plane2plane_gain", lio_params_.plane2plane_gain, 100.0);
-    // int map_capacity, grid_capacity;
-    // nh_.param<int>("lio_builder/map_capacity", map_capacity, 5000000);
-    // nh_.param<int>("lio_builder/grid_capacity", grid_capacity, 20);
+    nh_.param<double>("lio_builder/scan_resolution", lio_params_.scan_resolution, 0.5);
+    nh_.param<double>("lio_builder/map_resolution", lio_params_.map_resolution, 0.5);
+    nh_.param<double>("lio_builder/point2plane_gain", lio_params_.point2plane_gain, 1000.0);
+    nh_.param<double>("lio_builder/plane2plane_gain", lio_params_.plane2plane_gain, 100.0);
+    int map_capacity, grid_capacity;
+    nh_.param<int>("lio_builder/map_capacity", map_capacity, 5000000);
+    nh_.param<int>("lio_builder/grid_capacity", grid_capacity, 20);
 
-    // lio_params_.map_capacity = static_cast<size_t>(map_capacity);
-    // lio_params_.grid_capacity = static_cast<size_t>(grid_capacity);
-    // nh_.param<bool>("lio_builder/align_gravity", lio_params_.align_gravity, true);
-    // nh_.param<bool>("lio_builder/extrinsic_est_en", lio_params_.extrinsic_est_en, false);
-    // nh_.param<std::vector<double>>("lio_builder/imu_ext_rot", lio_params_.imu_ext_rot, std::vector<double>());
-    // nh_.param<std::vector<double>>("lio_builder/imu_ext_pos", lio_params_.imu_ext_pos, std::vector<double>());
-    // int mode;
-    // nh_.param<int>("lio_builder/near_mode", mode, 1);
-    // switch (mode) {
-    //     case 1:
-    //         lio_params_.mode = lio::VoxelMap::MODE::NEARBY_1;
-    //         break;
-    //     case 2:
-    //         lio_params_.mode = lio::VoxelMap::MODE::NEARBY_7;
-    //         break;
-    //     case 3:
-    //         lio_params_.mode = lio::VoxelMap::MODE::NEARBY_19;
-    //         break;
-    //     case 4:
-    //         lio_params_.mode = lio::VoxelMap::MODE::NEARBY_26;
-    //         break;
-
-    //     default:
-    //         lio_params_.mode = lio::VoxelMap::MODE::NEARBY_1;
-    //         break;
-    // }
+    lio_params_.map_capacity = static_cast<size_t>(map_capacity);
+    lio_params_.grid_capacity = static_cast<size_t>(grid_capacity);
+    nh_.param<bool>("lio_builder/align_gravity", lio_params_.align_gravity, true);
+    nh_.param<bool>("lio_builder/extrinsic_est_en", lio_params_.extrisic_est_en, false);
+    nh_.param<std::vector<double>>("lio_builder/imu_ext_rot", lio_params_.imu_rot_ext, std::vector<double>());
+    nh_.param<std::vector<double>>("lio_builder/imu_ext_pos", lio_params_.imu_ext_pos, std::vector<double>());
+    int mode;
+    nh_.param<int>("lio_builder/near_mode", mode, 1);
+    switch (mode) {
+        case 1:
+            lio_params_.nearby_ = lio::VoxelMap::NEARBY::NEARBY1;
+            break;
+        case 2:
+            lio_params_.nearby_ = lio::VoxelMap::NEARBY::NEARBY7;
+            break;
+        case 3:
+            lio_params_.nearby_ = lio::VoxelMap::NEARBY::NEARBY19;
+            break;
+        case 4:
+            lio_params_.nearby_ = lio::VoxelMap::NEARBY::NEARBY26;
+            break;
+        default:
+            lio_params_.nearby_ = lio::VoxelMap::NEARBY::NEARBY1;
+            break;
+    }
 
     // nh_.param<bool>("loop_closure/activate", loop_closure_.mutableParams().activate, true);
     // nh_.param<double>("loop_closure/rad_thresh", loop_closure_.mutableParams().rad_thresh, 0.4);
@@ -74,6 +73,9 @@ void MapBuilderRos::init_params() {
 void MapBuilderRos::init_sub_pub() {
     imu_sub_ = nh_.subscribe(imu_topic_, 1000, &MapBuilderRos::imu_callback, this);
     cloud_sub_ = nh_.subscribe(livox_topic_, 1000, &MapBuilderRos::livox_callback, this);
+    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("slam_odom", 1000);
+    local_path_pub_ = nh_.advertise<nav_msgs::Path>("local_path", 1000);
+    // global_path_pub_ = nh_.advertise<nav_msgs::Path>("local_path", 1000);
 }
 
 void MapBuilderRos::imu_callback(const sensor_msgs::Imu& imu_message) {
@@ -194,15 +196,43 @@ void MapBuilderRos::run() {
     while (ros::ok()) {
         local_rate_->sleep();
         ros::spinOnce();
+        // 时间同步ok,同步的数据放在了measure_group中
+
         if (!syncMeasure(imu_queue_, livox_datas)) {
             continue;
         }
-        // 时间同步ok,同步的数据放在了measure_group中
         // 那么接下来就是imu的初始化和点云的去畸变,发布去畸变后的点云
         // 将同步的数据放到lio中
+        lio_buidler_->mapping(measure_group_);
+        // ieskf系统初始化
+        if (lio_buidler_->GetCurrentStatus() == LIO_STATUS::INITIALIZE) {
+            continue;
+        }
+        current_time_ = measure_group_.lidar_end_time;
+        current_navi_state_ = lio_buidler_->GetState();
         // 可视化发布
+        // 发布tf
+        tf_.sendTransform(
+            eigen2Tf(current_navi_state_.rot, current_navi_state_.pos, local_frame_, body_frame_, current_time_));
+        // 发布里程计
+        publishOdom(
+            eigen2odom(current_navi_state_.rot, current_navi_state_.pos, local_frame_, body_frame_, current_time_));
+        // 发布点云
+        publishCloud(body_cloud_pub_, pcl2msg(lio_buidler_->cloudUndistortedBody(), body_frame_, current_time_));
+        publishCloud(local_cloud_pub_, pcl2msg(lio_buidler_->cloudWorld(), local_frame_, current_time_));
     }
     std::cout << "map builder thread exits" << std::endl;
+}
+
+void MapBuilderRos::publishOdom(const nav_msgs::Odometry& odom) {
+    odom_pub_.publish(odom);
+}
+
+void MapBuilderRos::publishLocalPath(const nav_msgs::Path& local_path) {
+}
+
+void MapBuilderRos::publishCloud(const ros::Publisher& cloud_pub, const sensor_msgs::PointCloud2& cloud) {
+    cloud_pub.publish(cloud);
 }
 
 }  // namespace lio

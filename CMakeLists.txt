@@ -22,6 +22,7 @@ find_package(PCL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(Glog REQUIRED)
+# find_package(Sophus REQUIRED)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 
 
@@ -39,18 +40,37 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDEDIR}
   ${GLOG_INCLOUDE_DIRS}
+  ${Sophus_INCLUDE_DIRS}
   src
+  # sophus
+  ${PROJECT_SOURCE_DIR}/thirdparty/sophus
 )
 
-add_executable(map_builder_node  
-  src/map_builder_node.cc
+
+
+
+list(APPEND lio_source_files 
+  src/voxel_map/voxel_map.cc
   src/mapping/map_builder_ros.cc
+  src/lio/imu_process.cc
+  src/lio/iglio_builder.cc
+  src/ieskf_fastlio/ieskf_fastlio.cc
 )
 
-target_link_libraries(map_builder_node
+add_library(lio_lib SHARED ${lio_source_files})
+target_link_libraries(lio_lib
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
   glog
   gflags
+)
+
+
+add_executable(map_builder_node  
+  src/map_builder_node.cc
+)
+
+target_link_libraries(map_builder_node
+  lio_lib
 )

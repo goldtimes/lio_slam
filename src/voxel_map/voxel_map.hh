@@ -49,7 +49,7 @@ struct Grid {
     Eigen::Matrix3d conv = Eigen::Matrix3d::Zero();
     Eigen::Matrix3d conv_inv = Eigen::Matrix3d::Zero();
     Eigen::Matrix3d conv_sum = Eigen::Matrix3d::Zero();
-    Eigen::Vector3d points_sum = Eigen::Matrix3d::Zero();
+    Eigen::Vector3d points_sum = Eigen::Vector3d::Zero();
     void setMinMax(size_t min_n, size_t max_n);
     void updateConv();
     void addPoint(const Eigen::Vector3d& point, bool insert);

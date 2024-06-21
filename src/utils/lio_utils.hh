@@ -2,6 +2,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <livox_ros_driver/CustomMsg.h>
 #include <nav_msgs/Odometry.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <deque>
 #include "sensors/imu.hh"
@@ -57,4 +58,54 @@ inline bool esti_plane(Eigen::Vector4d& plane_coeffs, const std::vector<Eigen::V
     return true;
 }
 
+inline geometry_msgs::TransformStamped eigen2Tf(const Eigen::Matrix3d& rot, const Eigen::Vector3d& pos,
+                                                std::string parent_frame_id, std::string child_frame_id,
+                                                double timestamped) {
+    geometry_msgs::TransformStamped tf;
+    tf.header.frame_id = parent_frame_id;
+    tf.header.stamp = ros::Time().fromSec(timestamped);
+    tf.child_frame_id = child_frame_id;
+    Eigen::Quaterniond quad = Eigen::Quaterniond(rot);
+
+    tf.transform.rotation.w = quad.w();
+    tf.transform.rotation.x = quad.x();
+    tf.transform.rotation.y = quad.y();
+    tf.transform.rotation.z = quad.z();
+
+    tf.transform.translation.x = pos(0);
+    tf.transform.translation.y = pos(1);
+    tf.transform.translation.z = pos(2);
+    return tf;
+}
+
+inline nav_msgs::Odometry eigen2odom(const Eigen::Matrix3d& rot, const Eigen::Vector3d& pos,
+                                     std::string parent_frame_id, std::string child_frame_id, double timestamped) {
+    nav_msgs::Odometry odom;
+    odom.header.frame_id = parent_frame_id;
+    odom.header.stamp = ros::Time().fromSec(timestamped);
+    odom.child_frame_id = child_frame_id;
+    Eigen::Quaterniond quad = Eigen::Quaterniond(rot);
+
+    odom.pose.pose.orientation.w = quad.w();
+    odom.pose.pose.orientation.x = quad.x();
+    odom.pose.pose.orientation.y = quad.y();
+    odom.pose.pose.orientation.z = quad.z();
+
+    odom.pose.pose.position.x = pos(0);
+    odom.pose.pose.position.y = pos(1);
+    odom.pose.pose.position.z = pos(2);
+    return odom;
+}
+inline sensor_msgs::PointCloud2 pcl2msg(const sensors::PointNormalCloud::Ptr cloud_pcl, std::string frame_id,
+                                        double timestamp) {
+    sensor_msgs::PointCloud2 msg;
+    pcl::toROSMsg(*cloud_pcl, msg);
+    if (timestamp < 0) {
+        msg.header.stamp = ros::Time::now();
+    } else {
+        msg.header.stamp = ros::Time().fromSec(timestamp);
+    }
+    msg.header.frame_id = frame_id;
+    return msg;
+}
 }  // namespace lio
