@@ -32,12 +32,12 @@ enum LIO_STATUS { INITIALIZE, RELOCALIZATION, LOCALIZATION, MAPPING };
 
 inline bool esti_plane(Eigen::Vector4d& plane_coeffs, const std::vector<Eigen::Vector3d>& points, const double& thresh,
                        bool none) {
-    Eigen::Matrix<double, NUM_MATCH_POINTS, 3> A;
-    Eigen::Matrix<double, NUM_MATCH_POINTS, 1> b;
+    Eigen::MatrixXd A(points.size(), 3);
+    Eigen::VectorXd b(points.size());
     A.setZero();
     b.setOnes();
     b *= -1.0;
-    for (int i = 0; i < NUM_MATCH_POINTS; ++i) {
+    for (int i = 0; i < points.size(); ++i) {
         A(i, 0) = points[i](0);
         A(i, 1) = points[i](1);
         A(i, 2) = points[i](2);
@@ -50,8 +50,8 @@ inline bool esti_plane(Eigen::Vector4d& plane_coeffs, const std::vector<Eigen::V
     plane_coeffs[3] = 1.0 / norm;
     // check 点到平面的距离 < thresh
     for (int j = 0; j < points.size(); ++j) {
-        if (std::fabs(plane_coeffs[0] * points[j](0) + plane_coeffs[1] * points[j](1) +
-                      plane_coeffs[2] * points[j](2)) > thresh) {
+        if (std::fabs(plane_coeffs[0] * points[j](0) + plane_coeffs[1] * points[j](1) + plane_coeffs[2] * points[j](2) +
+                      plane_coeffs[3]) > thresh) {
             return false;
         }
     }
