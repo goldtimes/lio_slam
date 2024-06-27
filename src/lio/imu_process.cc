@@ -49,6 +49,9 @@ bool ImuProcess::init(const MeasureGroup& meas) {
         return init_flag_;
     }
     init_flag_ = true;
+    // meas_acc: -0.321546, 0.011093, 0.943854
+    // mean_gyro: -0.005144, -0.004096, -0.009761
+    // 这里初始化是正确的
     ROS_INFO("meas_acc: %f, %f, %f", mean_acc(0), mean_acc(1), mean_acc(2));
     ROS_INFO("mean_gyro: %f, %f, %f", mean_gyro(0), mean_gyro(1), mean_gyro(2));
     // 设置ieskf的初始化状态
@@ -65,6 +68,7 @@ bool ImuProcess::init(const MeasureGroup& meas) {
         state.initG(-mean_acc);
     }
     ieskf_->change_x(state);
+    std::cout << "init state: " << state << std::endl;
     // 初始化噪声的协方差矩阵
     kf::Matrix23d init_P = ieskf_->P();
     init_P.setIdentity();
@@ -90,10 +94,11 @@ bool ImuProcess::operator()(const MeasureGroup& meas, sensors::PointNormalCloud:
 
 // fastlio中 imu的前向传播和后向传播去畸变
 void ImuProcess::undistortPointCloud(const MeasureGroup& group, sensors::PointNormalCloud::Ptr& out) {
-    ROS_INFO("undistort_point_cloud");
+    // ROS_INFO("undistort_point_cloud");
     // 静态初始化完成之后才开始去畸变
     // 需要计算一系列的imu姿态
     std::deque<sensors::IMU> imu_tmps(group.imudatas.begin(), group.imudatas.end());
+    // std::cout << "imu_tmps size: " << imu_tmps.size() << std::endl;
     // 这里为什么需要添加上一帧的imu？
     imu_tmps.push_front(last_imu_);
     const double imu_begin_time = imu_tmps.front().timestamp_;
@@ -109,6 +114,7 @@ void ImuProcess::undistortPointCloud(const MeasureGroup& group, sensors::PointNo
               });
     // 获取当前state状态
     kf::State curr_state = ieskf_->x();
+    // std::cout << "last state:" << curr_state << std::endl;
     // 将上一帧的状态记录
     imu_state_.emplace_back(0.0, last_acc_, last_gyro_, curr_state.rot, curr_state.pos, curr_state.vel);
 
@@ -137,6 +143,8 @@ void ImuProcess::undistortPointCloud(const MeasureGroup& group, sensors::PointNo
         // 预测
         ieskf_->predict(input, dt, Q_);
         curr_state = ieskf_->x();
+        // std::cout << "predict state:" << curr_state << std::endl;
+
         last_gyro_ = gyro_val - curr_state.bg;
         // 转到世界坐标系下
         last_acc_ = curr_state.rot * (acc_val - curr_state.ba);
@@ -154,8 +162,8 @@ void ImuProcess::undistortPointCloud(const MeasureGroup& group, sensors::PointNo
 
     // lidar_end_time时刻的状态量
     curr_state = ieskf_->x();
-    Eigen::Matrix3d curr_rot = curr_state.rot;
-    Eigen::Vector3d curr_pos = curr_state.pos;
+    Eigen::Matrix3d cur_rot = curr_state.rot;
+    Eigen::Vector3d cur_pos = curr_state.pos;
     // 从右往左看所以是雷达在imu下的坐标
     Eigen::Vector3d p_I_L = curr_state.pos_ext;
     Eigen::Matrix3d R_I_L = curr_state.rot_ext;
@@ -182,18 +190,19 @@ void ImuProcess::undistortPointCloud(const MeasureGroup& group, sensors::PointNo
             Eigen::Matrix3d point_time_rot = imu_rot * Sophus::SO3d::exp(gyro * dt).matrix();
             Eigen::Vector3d point_time_pos = imu_pos + vel * dt + 0.5 * acc * dt * dt;
             // // T_l_b * T_b_w_j * T_w_b_i * T_b_l * p
-            // Eigen::Vector3d p_compensate = cur_rot_ext.transpose() * (cur_rot.transpose() * (point_rot * (cur_rot_ext
-            // * point + cur_pos_ext) + point_pos - cur_pos) - cur_pos_ext);
+            Eigen::Vector3d p_compensate =
+                R_I_L.transpose() *
+                (cur_rot.transpose() * (point_time_rot * (R_I_L * point + p_I_L) + point_time_pos - cur_pos) - p_I_L);
 
-            // 接下来就是补偿到雷达尾部的时刻
-            //  R_I_L * L^p_k + p_I_L 将k时刻雷达坐标系中的点转换到imu坐标系下的k时刻的点
-            Eigen::Vector3d point_in_I = R_I_L * point + p_I_L;
-            // 在将imu坐标系下的点，转换到世界坐标系下
-            Eigen::Vector3d point_in_W = point_time_rot * point_in_I + point_time_pos;
-            // T_ei i时刻的世界姿态 - 雷达末尾时刻的世界姿态(世界坐标下的补偿量)
-            Eigen::Vector3d t_ei = point_in_W - curr_pos;
-            // 将该补偿量变换到lidar坐标系下
-            Eigen::Vector3d p_compensate = R_I_L.transpose() * (curr_rot.transpose() * t_ei) - p_I_L;
+            // // 接下来就是补偿到雷达尾部的时刻
+            // //  R_I_L * L^p_k + p_I_L 将k时刻雷达坐标系中的点转换到imu坐标系下的k时刻的点
+            // Eigen::Vector3d point_in_I = R_I_L * point + p_I_L;
+            // // 在将imu坐标系下的点，转换到世界坐标系下
+            // Eigen::Vector3d point_in_W = point_time_rot * point_in_I + point_time_pos;
+            // // T_ei i时刻的世界姿态 - 雷达末尾时刻的世界姿态(世界坐标下的补偿量)
+            // Eigen::Vector3d t_ei = point_in_W - curr_pos;
+            // // 将该补偿量变换到lidar坐标系下
+            // Eigen::Vector3d p_compensate = R_I_L.transpose() * (curr_rot.transpose() * t_ei) - p_I_L;
             iter_pcl->x = p_compensate(0);
             iter_pcl->y = p_compensate(1);
             iter_pcl->z = p_compensate(2);

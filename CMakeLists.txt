@@ -22,7 +22,7 @@ find_package(PCL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(Glog REQUIRED)
-# find_package(Sophus REQUIRED)
+find_package(Sophus REQUIRED)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 
 
@@ -43,7 +43,7 @@ include_directories(
   ${Sophus_INCLUDE_DIRS}
   src
   # sophus
-  ${PROJECT_SOURCE_DIR}/thirdparty/sophus
+  # ${PROJECT_SOURCE_DIR}/thirdparty/sophus
 )
 
 

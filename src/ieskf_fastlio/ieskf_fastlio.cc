@@ -4,7 +4,7 @@ namespace kf {
 
 Eigen::Matrix3d rightJacobian(const Eigen::Vector3d &inp) {
     // return Sophus::SO3d::leftJacobian(inp).transpose();
-    return Sophus::SO3d::jl(inp);
+    return Sophus::SO3d::leftJacobian(inp).transpose();
 }
 
 void State::operator+=(const Vector23d &delta) {
@@ -122,6 +122,7 @@ void IESKF::update() {
         H_.block<12, 12>(0, 0) += shared_data.H;
         b_.block<12, 1>(0, 0) += shared_data.b;
         delta = -H_.inverse() * b_;
+        std::cout << "delta: " << delta.transpose() << std::endl;
         x_ += delta;
         shared_data.iter_num += 1;
         if (delta.maxCoeff() < eps_) break;

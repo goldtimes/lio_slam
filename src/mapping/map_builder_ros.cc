@@ -212,7 +212,7 @@ void MapBuilderRos::run() {
             continue;
         }
         double sync_time = tic_toc.toc();
-        ROS_INFO("syncMeasuer: %6f", sync_time);
+        // ROS_INFO("syncMeasuer: %6f", sync_time);
         // 那么接下来就是imu的初始化和点云的去畸变,发布去畸变后的点云
         // 将同步的数据放到lio中
         lio_buidler_->mapping(measure_group_);

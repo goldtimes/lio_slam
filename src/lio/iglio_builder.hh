@@ -104,8 +104,9 @@ class IGLIOBuilder {
 
     std::shared_ptr<ImuProcess> imu_process_ptr_;
     std::shared_ptr<kf::IESKF> ieskf_;
-    size_t frame_count_;
-    size_t key_frame_cout_;
+    // size_t 需要初始化，不然默认值有问题
+    size_t frame_count_ = 0;
+    size_t key_frame_cout_ = 0;
     std::vector<PointWithCov> point_array_lidar_;
 
     std::vector<bool> cached_flag_;

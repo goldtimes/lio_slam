@@ -1,6 +1,8 @@
 #pragma once
 #include <Eigen/Core>
+#include <iostream>
 #include <sophus/so3.hpp>
+
 namespace kf {
 const double GRAVITY = 9.81;
 using Vector21d = Eigen::Matrix<double, 21, 1>;
@@ -45,6 +47,14 @@ struct State {
     void operator+=(const Vector23d &delta);
 
     void operator+=(const Vector24d &delta);
+
+    friend std::ostream &operator<<(std::ostream &output, const State &state) {
+        output << "pos: " << state.pos.transpose() << std::endl
+               << "rot: " << state.rot << std::endl
+               << "vel: " << state.vel.transpose() << std::endl
+               << "g: " << state.g.transpose() << std::endl;
+        return output;
+    }
 
     Vector23d operator-(const State &other);
 

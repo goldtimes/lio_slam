@@ -21,10 +21,10 @@ void Grid::setMinMax(size_t min, size_t max) {
 }
 
 void Grid::addPoint(const Eigen::Vector3d& point, bool insert) {
-    point_num++;
+    points_num++;
     is_update = false;
     points_sum += point;
-    centroid = points_sum / static_cast<double>(point_num);
+    centroid = points_sum / static_cast<double>(points_num);
     conv_sum += (point * point.transpose());
     if (points.size() >= 2 * max_num || !insert) return;
     points.push_back(point);
@@ -38,12 +38,12 @@ void Grid::updateConv() {
     }
     is_update = true;
     // 体素中的点过小
-    if (point_num < min_num) {
+    if (points_num < min_num) {
         is_valid = false;
         return;
     }
     // 更新协方差
-    conv = (conv_sum - points_sum * centroid.transpose()) / (static_cast<double>(point_num) - 1);
+    conv = (conv_sum - points_sum * centroid.transpose()) / (static_cast<double>(points_num) - 1);
     is_valid = true;
     Eigen::JacobiSVD<Eigen::Matrix3d> svd(conv, Eigen::ComputeFullU | Eigen::ComputeFullV);
     Eigen::Vector3d val(1, 1, 1e-3);
@@ -167,7 +167,7 @@ size_t VoxelMap::addCloud(const sensors::PointNormalCloud::Ptr cloud_ptr) {
                 storage_[grid_loc].second = grid;
             } else {
                 // 同一个体素，更新voxelmap
-                size_t num_in_grid = iter->second.second->point_num;
+                size_t num_in_grid = iter->second.second->points_num;
                 if (num_in_grid < 50) {
                     bool insert = num_in_grid < grid_capacity_ ? true : false;
                     iter->second.second->addPoint(pt_eigen, insert);

@@ -76,7 +76,9 @@ void IGLIOBuilder::mapping(const MeasureGroup& meas) {
     }
     // 下一帧进来
     fast_voxel_map_->filter(cloud_lidar_, point_array_lidar_);
+    // std::cout << "after filter size: " << point_array_lidar_.size() << std::endl;
     // 做一次lio
+    // 不update时候，定位是没有漂移的
     ieskf_->update();
     frame_count_++;
     // 在前几帧的情况下，我们不根据key_rot,key_trans来构建子图
@@ -95,7 +97,9 @@ void IGLIOBuilder::mapping(const MeasureGroup& meas) {
         voxel_map_->addCloud(cloud_world_);
         key_rot = ieskf_->x().rot;
         key_trans = ieskf_->x().pos;
+        ROS_INFO("key frame size: %d", key_frame_cout_);
     }
+    // std::cout << "key_frame_cout:" << key_frame_cout_ << std::endl;
 }
 
 sensors::PointNormalCloud::Ptr IGLIOBuilder::transformToWorld(const sensors::PointNormalCloud::Ptr cloud) {
@@ -181,13 +185,14 @@ void IGLIOBuilder::gicpConstraint(kf::State& state, kf::SharedState& shared_stat
         shared_state.b += params_.plane2plane_gain * rho[1] * J.transpose() * omega * error;
     }
     if (gicp_corr_cached_.size() < 1) {
-        std::cout << "NO EFFECTIVE POINTS!" << std::endl;
+        std::cout << "gicp NO EFFECTIVE POINTS!" << std::endl;
     }
 }
 // 和fastlio一样 点面的残差
 void IGLIOBuilder::fastlioConstraint(kf::State& state, kf::SharedState& shared_state) {
     int size = point_array_lidar_.size();
     if (shared_state.iter_num < 3) {
+        // std::cout << "iter times:" << shared_state.iter_num << std::endl;
         for (int i = 0; i < size; ++i) {
             Eigen::Vector3d p_lidar = point_array_lidar_[i].point;
             Eigen::Vector3d p_body = state.rot_ext * p_lidar + state.pos_ext;
@@ -196,6 +201,7 @@ void IGLIOBuilder::fastlioConstraint(kf::State& state, kf::SharedState& shared_s
             std::vector<Eigen::Vector3d> nearest_points;
             nearest_points.reserve(5);
             voxel_map_->searchKnn(p_world, 5, 5.0, nearest_points);
+            // std::cout << "nearest points:" << nearest_points.size() << std::endl;
             // 平面拟合
             Eigen::Vector4d plane_coeffs;
             cached_flag_[i] = false;
@@ -239,7 +245,7 @@ void IGLIOBuilder::fastlioConstraint(kf::State& state, kf::SharedState& shared_s
         if (params_.extrisic_est_en) {
             Eigen::Matrix<double, 1, 3> de_drot_ext =
                 -norm_vec.transpose() * state.rot * state.rot_ext * Sophus::SO3d::hat(p_lidar);
-            Eigen::Matrix<double, 1, 3> de_dpos_ext = norm_vec.transpose() * state.rot_ext;
+            Eigen::Matrix<double, 1, 3> de_dpos_ext = norm_vec.transpose() * state.rot;
             J.block<1, 3>(0, 6) = de_drot_ext;
             J.block<1, 3>(0, 9) = de_dpos_ext;
         }
@@ -247,7 +253,7 @@ void IGLIOBuilder::fastlioConstraint(kf::State& state, kf::SharedState& shared_s
         shared_state.b += J.transpose() * params_.point2plane_gain * error;
     }
     if (effect_feat_num < 1) {
-        std::cout << "NO_EFFECTIVE POINTS" << std::endl;
+        std::cout << "fastlio  NO_EFFECTIVE POINTS" << std::endl;
     }
 }
 

@@ -34,21 +34,25 @@ class HashUtil {
 
 struct Grid {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Grid(size_t num) : max_num(num) {
+    Grid(size_t num) : max_num(num), is_update(false) {
         points.reserve(2 * max_num);
     }
     size_t hash = 0;
     size_t max_num = 20;
     size_t min_num = 6;
-    size_t point_num = 0;
+    size_t points_num = 0;
     bool is_update = false;
     bool is_valid = false;
     std::vector<Eigen::Vector3d> points;
     // 质心
     Eigen::Vector3d centroid = Eigen::Vector3d::Zero();
+    // 协方差
     Eigen::Matrix3d conv = Eigen::Matrix3d::Zero();
+    // 协方差的逆
     Eigen::Matrix3d conv_inv = Eigen::Matrix3d::Zero();
+    // 协方差的和
     Eigen::Matrix3d conv_sum = Eigen::Matrix3d::Zero();
+    // 点的和
     Eigen::Vector3d points_sum = Eigen::Vector3d::Zero();
     void setMinMax(size_t min_n, size_t max_n);
     void updateConv();
@@ -65,7 +69,6 @@ class VoxelMap {
     };
     VoxelMap(double resolution, size_t capacity, size_t grid_capacity, NEARBY mode)
         : resolution_(resolution),
-          resolution_inv(1.0 / resolution),
           capacity_(capacity),
           grid_capacity_(grid_capacity),
           mode_(mode),
@@ -83,6 +86,9 @@ class VoxelMap {
 
     std::vector<Eigen::Vector3d>& searchRange() {
         return nearby_;
+    }
+    size_t getSize() {
+        return cache_.size();
     }
 
    private:
