@@ -141,13 +141,13 @@ void IGLIOBuilder::gicpConstraint(kf::State& state, kf::SharedState& shared_stat
         Eigen::Matrix3d cov_B = Eigen::Matrix3d::Zero();
         for (int i = 0; i < size; ++i) {
             Eigen::Vector3d point_lidar = point_array_lidar_[i].point;
-            Eigen::Vector3d point_body = state.rot_ext * point_body + state.pos_ext;
+            Eigen::Vector3d point_body = state.rot_ext * point_lidar + state.pos_ext;
             Eigen::Vector3d point_world = state.rot * point_body + state.pos;
             Eigen::Matrix3d cov_A = point_array_lidar_[i].point_cov;
             // 最近邻体素
             for (Eigen::Vector3d& near : voxel_map_->searchRange()) {
                 Eigen::Vector3d pw_near = point_world + near;
-                if (voxel_map_->getCentroidAndConvariance(pw_near, mean_B, cov_A) &&
+                if (voxel_map_->getCentroidAndConvariance(pw_near, mean_B, cov_B) &&
                     voxel_map_->isSameGrid(pw_near, mean_B)) {
                     gicp_corr_cached_.emplace_back(point_lidar, mean_B, cov_A, cov_B);
                 }
@@ -180,10 +180,11 @@ void IGLIOBuilder::gicpConstraint(kf::State& state, kf::SharedState& shared_stat
             J.block<3, 3>(0, 9) = -state.rot;
         }
         Eigen::Matrix3d robust_information_matrix =
-            params_.point2plane_gain * (rho[1] * omega + 2.0 * rho[2] * omega * error * error.transpose() * omega);
+            params_.plane2plane_gain * (rho[1] * omega + 2.0 * rho[2] * omega * error * error.transpose() * omega);
         shared_state.H += J.transpose() * robust_information_matrix * J;
-        shared_state.b += params_.plane2plane_gain * rho[1] * J.transpose() * omega * error;
+        shared_state.b += (params_.plane2plane_gain * rho[1] * J.transpose() * omega * error);
     }
+    // std::cout << "shared_state.b:" << shared_state.b.transpose() << std::endl;
     if (gicp_corr_cached_.size() < 1) {
         std::cout << "gicp NO EFFECTIVE POINTS!" << std::endl;
     }

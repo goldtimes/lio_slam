@@ -232,7 +232,7 @@ bool VoxelMap::searchKnn(const Eigen::Vector3d& point, size_t K, double range_th
 
 bool VoxelMap::getCentroidAndConvariance(size_t hash_idx, Eigen::Vector3d& centroid, Eigen::Matrix3d& conv) {
     auto iter = storage_.find(hash_idx);
-    if (iter != storage_.end()) {
+    if (iter != storage_.end() && iter->second.second->is_valid) {
         centroid = iter->second.second->centroid;
         conv = iter->second.second->conv;
         return true;
