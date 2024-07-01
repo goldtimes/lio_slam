@@ -22,12 +22,12 @@ lio_builder:
   imu_ext_pos: [-0.011, -0.02329, 0.04412]
 
 loop_closure:
-  activate: true
+  active: true
   rad_thresh: 0.2
-  dist_thresh: 1.0
+  dis_thresh: 1.0
   time_thresh: 30.0
   loop_pose_search_radius: 15.0
-  loop_pose_index_thresh: 25
+  loop_pose_min_size_thresh: 25
   submap_resolution: 0.5
   submap_search_num: 25
   loop_icp_thresh: 0.3

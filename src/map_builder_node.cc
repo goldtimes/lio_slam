@@ -22,7 +22,8 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
     tf2_ros::TransformBroadcaster tf_;
     // signal(SIGINT, signalHandler);
-    lio::MapBuilderRos map_builder_ros(nh, tf_);
+    std::shared_ptr<lio::LoopSharedData> shared_data = std::make_shared<lio::LoopSharedData>();
+    lio::MapBuilderRos map_builder_ros(nh, tf_, shared_data);
     map_builder_ros.run();
     google::ShutdownGoogleLogging();
     return 0;

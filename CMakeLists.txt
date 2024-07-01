@@ -23,6 +23,7 @@ find_package(PkgConfig REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(Glog REQUIRED)
 find_package(Sophus REQUIRED)
+find_package(GTSAM REQUIRED)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 
 
@@ -55,6 +56,7 @@ list(APPEND lio_source_files
   src/lio/imu_process.cc
   src/lio/iglio_builder.cc
   src/ieskf_fastlio/ieskf_fastlio.cc
+  src/loopclosure/loopclosure.cc
 )
 
 add_library(lio_lib SHARED ${lio_source_files})
@@ -64,6 +66,7 @@ target_link_libraries(lio_lib
   ${YAML_CPP_LIBRARIES}
   glog
   gflags
+  gtsam
 )
 
 

@@ -7,6 +7,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <mutex>
 #include "lio/iglio_builder.hh"
+#include "loopclosure/loopclosure.hh"
 #include "timer/tic_toc.hh"
 #include "utils/lio_utils.hh"
 
@@ -14,7 +15,7 @@ namespace lio {
 class MapBuilderRos {
    public:
     MapBuilderRos() = default;
-    MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster& tf);
+    MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster& tf, std::shared_ptr<LoopSharedData> shared_data);
     ~MapBuilderRos() = default;
 
     void run();
@@ -28,8 +29,10 @@ class MapBuilderRos {
     void init_params();
     void init_sub_pub();
     void publishOdom(const nav_msgs::Odometry& odom);
-    void publishLocalPath(const nav_msgs::Path& local_path);
+    void publishLocalPath();
+    void publishGlobalPath();
     void publishCloud(const ros::Publisher& cloud_pub, const sensor_msgs::PointCloud2& cloud);
+    void addKeypose();
 
    private:
     ros::NodeHandle& nh_;
@@ -50,6 +53,7 @@ class MapBuilderRos {
     ros::Publisher local_path_pub_;
     ros::Publisher global_path_pub_;
     nav_msgs::Path local_path_;
+    nav_msgs::Path global_path_;
 
     // 时间同步对象
     MeasureGroup measure_group_;
@@ -72,7 +76,13 @@ class MapBuilderRos {
 
     // rate
     std::shared_ptr<ros::Rate> local_rate_;
+    std::shared_ptr<ros::Rate> loop_rate_;
 
     Timer::TicToc tic_toc;
+
+    // loopclosure
+    std::shared_ptr<LoopClosureThread> loop_closure_;
+    std::shared_ptr<std::thread> loop_thread_;
+    std::shared_ptr<LoopSharedData> loop_shared_data_;
 };
 }  // namespace lio

@@ -5,11 +5,20 @@
 
 namespace lio {
 
-MapBuilderRos::MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster& tf) : nh_(nh), tf_(tf) {
-    LOG(INFO) << "MapBuilderRos";
+MapBuilderRos::MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster& tf,
+                             std::shared_ptr<LoopSharedData> shared_data)
+    : nh_(nh), tf_(tf), loop_shared_data_(shared_data) {
+    loop_closure_ = std::make_shared<LoopClosureThread>();
     init_params();
     init_sub_pub();
+    // init_service();
     lio_buidler_ = std::make_shared<IGLIOBuilder>(lio_params_);
+    // loop closure
+    loop_closure_->setLoopRate(loop_rate_);
+    loop_closure_->setSharedData(shared_data);
+    loop_closure_->init();
+    // 使用类对象创建线程，需要重载()运算符
+    loop_thread_ = std::make_shared<std::thread>(std::ref(*loop_closure_));
 }
 
 void MapBuilderRos::init_params() {
@@ -22,7 +31,7 @@ void MapBuilderRos::init_params() {
     nh_.param<double>("local_rate", local_rate, 20.0);
     nh_.param<double>("loop_rate", loop_rate, 1.0);
     local_rate_ = std::make_shared<ros::Rate>(local_rate);
-    // loop_rate_ = std::make_shared<ros::Rate>(loop_rate);
+    loop_rate_ = std::make_shared<ros::Rate>(loop_rate);
     nh_.param<double>("lio_builder/scan_resolution", lio_params_.scan_resolution, 0.5);
     nh_.param<double>("lio_builder/map_resolution", lio_params_.map_resolution, 0.5);
     nh_.param<double>("lio_builder/point2plane_gain", lio_params_.point2plane_gain, 1000.0);
@@ -57,17 +66,18 @@ void MapBuilderRos::init_params() {
             break;
     }
 
-    // nh_.param<bool>("loop_closure/activate", loop_closure_.mutableParams().activate, true);
-    // nh_.param<double>("loop_closure/rad_thresh", loop_closure_.mutableParams().rad_thresh, 0.4);
-    // nh_.param<double>("loop_closure/dist_thresh", loop_closure_.mutableParams().dist_thresh, 2.5);
-    // nh_.param<double>("loop_closure/time_thresh", loop_closure_.mutableParams().time_thresh, 30.0);
-    // nh_.param<double>("loop_closure/loop_pose_search_radius", loop_closure_.mutableParams().loop_pose_search_radius,
-    //                   10.0);
-    // nh_.param<int>("loop_closure/loop_pose_index_thresh", loop_closure_.mutableParams().loop_pose_index_thresh, 5);
-    // nh_.param<double>("loop_closure/submap_resolution", loop_closure_.mutableParams().submap_resolution, 0.2);
-    // nh_.param<int>("loop_closure/submap_search_num", loop_closure_.mutableParams().submap_search_num, 20);
-    // nh_.param<double>("loop_closure/loop_icp_thresh", loop_closure_.mutableParams().loop_icp_thresh, 0.3);
-    // nh_.param<bool>("loop_closure/z_prior", loop_closure_.mutableParams().z_prior, false);
+    nh_.param<bool>("loop_closure/active", loop_closure_->getLoopParams().active, true);
+    nh_.param<double>("loop_closure/rad_thresh", loop_closure_->getLoopParams().rad_thresh, 0.4);
+    nh_.param<double>("loop_closure/dis_thresh", loop_closure_->getLoopParams().dis_thresh, 2.5);
+    nh_.param<double>("loop_closure/time_thresh", loop_closure_->getLoopParams().time_thresh, 30.0);
+    nh_.param<double>("loop_closure/loop_pose_search_radius", loop_closure_->getLoopParams().loop_pose_search_radius,
+                      10.0);
+    nh_.param<int>("loop_closure/loop_pose_min_size_thresh", loop_closure_->getLoopParams().loop_pose_min_size_thresh,
+                   5);
+    nh_.param<double>("loop_closure/submap_resolution", loop_closure_->getLoopParams().submap_resolution, 0.2);
+    nh_.param<int>("loop_closure/submap_search_num", loop_closure_->getLoopParams().submap_search_num, 20);
+    nh_.param<double>("loop_closure/loop_icp_thresh", loop_closure_->getLoopParams().loop_icp_thresh, 0.3);
+    nh_.param<bool>("loop_closure/z_prior", loop_closure_->getLoopParams().z_prior, false);
 }
 
 void MapBuilderRos::init_sub_pub() {
@@ -79,7 +89,7 @@ void MapBuilderRos::init_sub_pub() {
     local_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("local_cloud", 10);
     odom_pub_ = nh_.advertise<nav_msgs::Odometry>("slam_odom", 1000);
     local_path_pub_ = nh_.advertise<nav_msgs::Path>("local_path", 1000);
-    // global_path_pub_ = nh_.advertise<nav_msgs::Path>("local_path", 1000);
+    global_path_pub_ = nh_.advertise<nav_msgs::Path>("global_path", 1000);
 }
 
 void MapBuilderRos::imu_callback(const sensor_msgs::Imu& imu_message) {
@@ -224,23 +234,109 @@ void MapBuilderRos::run() {
         current_navi_state_ = lio_buidler_->GetState();
         // 可视化发布
         // 发布tf
+        tf_.sendTransform(eigen2Tf(loop_shared_data_->offset_rot, loop_shared_data_->offset_trans, global_frame_,
+                                   local_frame_, current_time_));
         tf_.sendTransform(
             eigen2Tf(current_navi_state_.rot, current_navi_state_.pos, local_frame_, body_frame_, current_time_));
         // 发布里程计
         publishOdom(
             eigen2odom(current_navi_state_.rot, current_navi_state_.pos, local_frame_, body_frame_, current_time_));
+        // 更新keypose
+        addKeypose();
         // 发布点云
         publishCloud(body_cloud_pub_, pcl2msg(lio_buidler_->cloudUndistortedBody(), body_frame_, current_time_));
         publishCloud(local_cloud_pub_, pcl2msg(lio_buidler_->cloudWorld(), local_frame_, current_time_));
+        publishLocalPath();
+        publishGlobalPath();
     }
     std::cout << "map builder thread exits" << std::endl;
+}
+
+void MapBuilderRos::addKeypose() {
+    int idx = loop_shared_data_->keyposes.size();
+    // 第一帧
+    if (loop_shared_data_->keyposes.empty()) {
+        std::lock_guard<std::mutex> lck(loop_shared_data_->mutex);
+        loop_shared_data_->keyposes.emplace_back(idx, current_time_, current_navi_state_.rot, current_navi_state_.pos);
+        loop_shared_data_->keyposes.back().addOffset(loop_shared_data_->offset_rot, loop_shared_data_->offset_trans);
+        loop_shared_data_->keypose_add = true;
+        loop_shared_data_->cloud_history.push_back(lio_buidler_->cloudUndistortedBody());
+        return;
+    }
+    Pose6D& last_key_pose = loop_shared_data_->keyposes.back();
+    Eigen::Matrix3d diff_rot = last_key_pose.local_rot.transpose() * current_navi_state_.rot;
+    Eigen::Vector3d diff_pos =
+        last_key_pose.local_rot.transpose() * (current_navi_state_.pos - last_key_pose.local_pos);
+    Eigen::Vector3d rpy = rotate2rpy(diff_rot);
+    // keyframe
+    if (diff_pos.norm() > loop_closure_->getLoopParams().dis_thresh ||
+        rpy.norm() > loop_closure_->getLoopParams().rad_thresh) {
+        std::lock_guard<std::mutex> lck(loop_shared_data_->mutex);
+        loop_shared_data_->keyposes.emplace_back(idx, current_time_, current_navi_state_.rot, current_navi_state_.pos);
+        loop_shared_data_->keyposes.back().addOffset(loop_shared_data_->offset_rot, loop_shared_data_->offset_trans);
+        loop_shared_data_->keypose_add = true;
+        loop_shared_data_->cloud_history.push_back(lio_buidler_->cloudUndistortedBody());
+    }
 }
 
 void MapBuilderRos::publishOdom(const nav_msgs::Odometry& odom) {
     odom_pub_.publish(odom);
 }
 
-void MapBuilderRos::publishLocalPath(const nav_msgs::Path& local_path) {
+void MapBuilderRos::publishLocalPath() {
+    if (local_path_pub_.getNumSubscribers() == 0) {
+        return;
+    }
+
+    if (loop_shared_data_->keyposes.empty()) {
+        return;
+    }
+    nav_msgs::Path path;
+    path.header.frame_id = global_frame_;
+    path.header.stamp = ros::Time().fromSec(current_time_);
+    for (const Pose6D& p : loop_shared_data_->keyposes) {
+        geometry_msgs::PoseStamped pose;
+        pose.header.frame_id = global_frame_;
+        pose.header.stamp = ros::Time().fromSec(current_time_);
+        pose.pose.position.x = p.local_pos(0);
+        pose.pose.position.y = p.local_pos(1);
+        pose.pose.position.z = p.local_pos(2);
+        Eigen::Quaterniond q(p.local_rot);
+        pose.pose.orientation.x = q.x();
+        pose.pose.orientation.y = q.y();
+        pose.pose.orientation.z = q.z();
+        pose.pose.orientation.w = q.w();
+        path.poses.push_back(pose);
+    }
+    local_cloud_pub_.publish(path);
+}
+
+void MapBuilderRos::publishGlobalPath() {
+    if (global_path_pub_.getNumSubscribers() == 0) {
+        return;
+    }
+
+    if (loop_shared_data_->keyposes.empty()) {
+        return;
+    }
+    nav_msgs::Path path;
+    path.header.frame_id = global_frame_;
+    path.header.stamp = ros::Time().fromSec(current_time_);
+    for (Pose6D& p : loop_shared_data_->keyposes) {
+        geometry_msgs::PoseStamped pose;
+        pose.header.frame_id = global_frame_;
+        pose.header.stamp = ros::Time().fromSec(current_time_);
+        pose.pose.position.x = p.global_pos(0);
+        pose.pose.position.y = p.global_pos(1);
+        pose.pose.position.z = p.global_pos(2);
+        Eigen::Quaterniond q(p.global_rot);
+        pose.pose.orientation.x = q.x();
+        pose.pose.orientation.y = q.y();
+        pose.pose.orientation.z = q.z();
+        pose.pose.orientation.w = q.w();
+        path.poses.push_back(pose);
+    }
+    global_path_pub_.publish(path);
 }
 
 void MapBuilderRos::publishCloud(const ros::Publisher& cloud_pub, const sensor_msgs::PointCloud2& cloud) {

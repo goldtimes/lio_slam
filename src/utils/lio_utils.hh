@@ -108,4 +108,10 @@ inline sensor_msgs::PointCloud2 pcl2msg(const sensors::PointNormalCloud::Ptr clo
     msg.header.frame_id = frame_id;
     return msg;
 }
+inline Eigen::Vector3d rotate2rpy(const Eigen::Matrix3d& rotate) {
+    double roll = std::atan2(rotate(2, 1), rotate(2, 2));
+    double pitch = std::asin(-rotate(2, 0));
+    double yaw = std::atan2(rotate(1, 0), rotate(0, 0));
+    return Eigen::Vector3d(roll, pitch, yaw);
+}
 }  // namespace lio
