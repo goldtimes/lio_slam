@@ -184,6 +184,7 @@ void IGLIOBuilder::gicpConstraint(kf::State& state, kf::SharedState& shared_stat
         shared_state.H += J.transpose() * robust_information_matrix * J;
         shared_state.b += (params_.plane2plane_gain * rho[1] * J.transpose() * omega * error);
     }
+    //
     // std::cout << "shared_state.b:" << shared_state.b.transpose() << std::endl;
     if (gicp_corr_cached_.size() < 1) {
         std::cout << "gicp NO EFFECTIVE POINTS!" << std::endl;
