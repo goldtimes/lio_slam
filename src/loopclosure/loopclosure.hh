@@ -147,9 +147,11 @@ class LoopClosureThread {
     std::shared_ptr<gtsam::ISAM2> isam2;
     gtsam::NonlinearFactorGraph gtsam_graph;
 
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_histories;
+    // 将keypose的位姿看做点云存放起来
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_histories_pose;
+    pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr kdtree_histories_pose;
+
     pcl::VoxelGrid<sensors::PointNormalType>::Ptr submap_filter;
-    pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr kdtree_histories;
     pcl::IterativeClosestPoint<sensors::PointNormalType, sensors::PointNormalType>::Ptr icp;
 };
 }  // namespace lio
