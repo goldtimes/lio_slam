@@ -97,7 +97,7 @@ void IGLIOBuilder::mapping(const MeasureGroup& meas) {
         voxel_map_->addCloud(cloud_world_);
         key_rot = ieskf_->x().rot;
         key_trans = ieskf_->x().pos;
-        ROS_INFO("key frame size: %d", key_frame_cout_);
+        // ROS_INFO("key frame size: %d", key_frame_cout_);
     }
     // std::cout << "key_frame_cout:" << key_frame_cout_ << std::endl;
 }

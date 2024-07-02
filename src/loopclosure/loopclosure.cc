@@ -75,7 +75,7 @@ void LoopClosureThread::operator()() {
         loopCheck();
         addOdomFactor();
         addLoopFactor();
-        smoothAndUpdate();
+        // smoothAndUpdate();
     }
 }
 
@@ -89,7 +89,7 @@ void LoopClosureThread::loopCheck() {
     int curr_index = tmp_keypose.size() - 1;
     int pre_index = -1;
     cloud_histories_pose->clear();
-    ROS_INFO("tmp keypose size: %ld", tmp_keypose.size());
+    // ROS_INFO("tmp keypose size: %ld", tmp_keypose.size());
     // shared_data_->keypose保存了所有的轨迹数据
     for (const auto& pose : tmp_keypose) {
         pcl::PointXYZ point;
@@ -217,7 +217,7 @@ void LoopClosureThread::smoothAndUpdate() {
         tmp_keypose[i].global_rot = optimized_pose.rotation().matrix().cast<double>();
         tmp_keypose[i].global_pos = optimized_pose.translation().matrix().cast<double>();
     }
-    ROS_INFO("lastest_index:%ld, current_size:%ld", lastest_index, current_size);
+    // ROS_INFO("lastest_index:%ld, current_size:%ld", lastest_index, current_size);
     for (int i = lastest_index; i < current_size; ++i) {
         shared_data_->keyposes[i].addOffset(offset_rot, offset_pos);
     }

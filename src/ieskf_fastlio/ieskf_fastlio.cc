@@ -123,7 +123,7 @@ void IESKF::update() {
         H_.block<12, 12>(0, 0) += shared_data.H;
         b_.block<12, 1>(0, 0) += shared_data.b;
         delta = -H_.inverse() * b_;
-        ROS_INFO("iter:%d, delta_p:%f, delta_rot:%f", i, delta.segment<3>(0).norm(), delta.block(3, 0, 3, 1).norm());
+        // ROS_INFO("iter:%d, delta_p:%f, delta_rot:%f", i, delta.segment<3>(0).norm(), delta.block(3, 0, 3, 1).norm());
         x_ += delta;
         shared_data.iter_num += 1;
         if (delta.maxCoeff() < eps_) break;
