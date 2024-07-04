@@ -33,7 +33,7 @@ Visualization Manager:
   Class: ""
   Displays:
     - Alpha: 0.5
-      Cell Size: 1
+      Cell Size: 50
       Class: rviz/Grid
       Color: 160; 160; 164
       Enabled: true
@@ -222,7 +222,7 @@ Visualization Manager:
         map:
           Value: true
       Marker Alpha: 1
-      Marker Scale: 1
+      Marker Scale: 10
       Name: TF
       Show Arrows: true
       Show Axes: true
@@ -310,7 +310,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 15.597952842712402
+      Distance: 299.9350891113281
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -326,9 +326,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.2847967147827148
+      Pitch: 1.5697963237762451
       Target Frame: body
-      Yaw: 3.153157949447632
+      Yaw: 3.408151626586914
     Saved: ~
 Window Geometry:
   Displays:

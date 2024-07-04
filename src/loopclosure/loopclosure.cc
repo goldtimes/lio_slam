@@ -75,7 +75,7 @@ void LoopClosureThread::operator()() {
         loopCheck();
         addOdomFactor();
         addLoopFactor();
-        // smoothAndUpdate();
+        smoothAndUpdate();
     }
 }
 
@@ -104,6 +104,7 @@ void LoopClosureThread::loopCheck() {
     // 找最后一个位姿半径10m以内的点
     kdtree_histories_pose->radiusSearch(cloud_histories_pose->back(), loop_params_.loop_pose_search_radius, idxs, dist,
                                         0);
+    //找到可能的id
     for (int i = 0; i < idxs.size(); ++i) {
         int id = idxs[i];
         if (std::abs(tmp_keypose[id].time - tmp_keypose.back().time) > loop_params_.time_thresh &&
@@ -124,6 +125,7 @@ void LoopClosureThread::loopCheck() {
 
     sensors::PointNormalCloud::Ptr aligned(new sensors::PointNormalCloud());
     icp->align(*aligned, Eigen::Matrix4f::Identity());
+    // save aligned cloud
     float score = icp->getFitnessScore();
     if (!icp->hasConverged() || score > loop_params_.loop_icp_thresh) {
         return;
@@ -138,9 +140,19 @@ void LoopClosureThread::loopCheck() {
     Eigen::Matrix4d T_G_pre = Eigen::Matrix4d::Identity();
     T_G_pre.block<3, 3>(0, 0) = tmp_keypose[pre_index].global_rot;
     T_G_pre.block<3, 1>(0, 3) = tmp_keypose[pre_index].global_pos;
-    Eigen::Matrix4d T_12 = T_G_pre.transpose() * T_pre_cur * T_G_cur;
+    // 变换矩阵的逆 而不是transpose()
+    Eigen::Matrix4d T_12 = T_G_pre.inverse() * T_pre_cur * T_G_cur;
     Eigen::Matrix3d R12 = T_12.block<3, 3>(0, 0);
     Eigen::Vector3d t12 = T_12.block<3, 1>(0, 3);
+    // std::cout << "R12: \n" << R12 << std::endl;
+    // std::cout << "t12: " << t12.transpose() << std::endl;
+    // Eigen::Matrix3d R12_tmp = tmp_keypose[pre_index].global_rot.transpose() * T_pre_cur.block<3, 3>(0, 0) *
+    //                           tmp_keypose[curr_index].global_rot;
+    // Eigen::Vector3d t12_tmp = tmp_keypose[pre_index].global_rot.transpose() *
+    //                           (T_pre_cur.block<3, 3>(0, 0) * tmp_keypose[curr_index].global_pos +
+    //                            T_pre_cur.block<3, 1>(0, 3) - tmp_keypose[pre_index].global_pos);
+    // std::cout << "r12_tmp: \n" << R12_tmp << std::endl;
+    // std::cout << "t12_tmp: " << t12_tmp.transpose() << std::endl;
     shared_data_->loop_pairs.emplace_back(pre_index, curr_index, score, R12, t12);
 }
 // 构建odom之间的factor
@@ -200,7 +212,7 @@ void LoopClosureThread::smoothAndUpdate() {
     }
     gtsam_graph.resize(0);
     initialized_estimate.clear();
-    optimized_estimate = isam2->calculateEstimate();
+    optimized_estimate = isam2->calculateBestEstimate();
     gtsam::Pose3 lastest_estimate = optimized_estimate.at<gtsam::Pose3>(lastest_index);
     tmp_keypose[lastest_index].global_rot = lastest_estimate.rotation().matrix().cast<double>();
     tmp_keypose[lastest_index].global_pos = lastest_estimate.translation().matrix().cast<double>();
@@ -214,8 +226,8 @@ void LoopClosureThread::smoothAndUpdate() {
     shared_data_->mutex.unlock();
     for (int i = 0; i < lastest_index; ++i) {
         gtsam::Pose3 optimized_pose = optimized_estimate.at<gtsam::Pose3>(i);
-        tmp_keypose[i].global_rot = optimized_pose.rotation().matrix().cast<double>();
-        tmp_keypose[i].global_pos = optimized_pose.translation().matrix().cast<double>();
+        shared_data_->keyposes[i].global_rot = optimized_pose.rotation().matrix().cast<double>();
+        shared_data_->keyposes[i].global_pos = optimized_pose.translation().matrix().cast<double>();
     }
     // ROS_INFO("lastest_index:%ld, current_size:%ld", lastest_index, current_size);
     for (int i = lastest_index; i < current_size; ++i) {

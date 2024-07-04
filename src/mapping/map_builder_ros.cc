@@ -15,7 +15,7 @@ MapBuilderRos::MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster&
     lio_buidler_ = std::make_shared<IGLIOBuilder>(lio_params_);
     // loop closure
     loop_closure_->setLoopRate(loop_rate_);
-    loop_closure_->setSharedData(shared_data);
+    loop_closure_->setSharedData(loop_shared_data_);
     loop_closure_->init();
     // 使用类对象创建线程，需要重载()运算符
     loop_thread_ = std::make_shared<std::thread>(std::ref(*loop_closure_));
@@ -270,7 +270,9 @@ void MapBuilderRos::addKeypose() {
     Eigen::Vector3d rpy = rotate2rpy(diff_rot);
     // keyframe
     if (diff_pos.norm() > loop_closure_->getLoopParams().dis_thresh ||
-        rpy.norm() > loop_closure_->getLoopParams().rad_thresh) {
+        std::abs(rpy(0)) > loop_closure_->getLoopParams().rad_thresh ||
+        std::abs(rpy(1)) > loop_closure_->getLoopParams().rad_thresh ||
+        std::abs(rpy(2)) > loop_closure_->getLoopParams().rad_thresh) {
         std::lock_guard<std::mutex> lck(loop_shared_data_->mutex);
         loop_shared_data_->keyposes.emplace_back(idx, current_time_, current_navi_state_.rot, current_navi_state_.pos);
         loop_shared_data_->keyposes.back().addOffset(loop_shared_data_->offset_rot, loop_shared_data_->offset_trans);
