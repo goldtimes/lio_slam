@@ -1,0 +1,5 @@
+string save_path # 地图路径
+float32 resolution # 地图分辨率
+---
+int32 status  # 状态
+string message # 返回消息

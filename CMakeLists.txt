@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   livox_ros_driver
+  message_generation
+  std_msgs
 )
 set(CMAKE_BUILD_TYPE Release)
 
@@ -26,6 +28,15 @@ find_package(Sophus REQUIRED)
 find_package(GTSAM REQUIRED)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 
+add_service_files(
+  FILES 
+  SaveMap.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
 
 
 catkin_package(
