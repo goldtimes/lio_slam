@@ -1,4 +1,7 @@
 #include "mapping/map_builder_ros.hh"
+
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 #include <iostream>
 #include "sensors/imu.hh"
 #include "sensors/point_types.hh"
@@ -11,7 +14,7 @@ MapBuilderRos::MapBuilderRos(ros::NodeHandle& nh, tf2_ros::TransformBroadcaster&
     loop_closure_ = std::make_shared<LoopClosureThread>();
     init_params();
     init_sub_pub();
-    // init_service();
+    init_service();
     lio_buidler_ = std::make_shared<IGLIOBuilder>(lio_params_);
     // loop closure
     loop_closure_->setLoopRate(loop_rate_);
@@ -90,6 +93,31 @@ void MapBuilderRos::init_sub_pub() {
     odom_pub_ = nh_.advertise<nav_msgs::Odometry>("slam_odom", 1000);
     local_path_pub_ = nh_.advertise<nav_msgs::Path>("local_path", 1000);
     global_path_pub_ = nh_.advertise<nav_msgs::Path>("global_path", 1000);
+    loop_mark_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("loop_mark", 1000);
+}
+
+void MapBuilderRos::init_service() {
+    save_map_server_ = nh_.advertiseService("save_map", &MapBuilderRos::save_map_callback, this);
+}
+
+bool MapBuilderRos::save_map_callback(lio_slam::SaveMap::Request& req, lio_slam::SaveMap::Response& resp) {
+    std::string file_path = req.save_path;
+    sensors::PointNormalCloud::Ptr out_cloud(new sensors::PointNormalCloud());
+    for (Pose6D& p : loop_shared_data_->keyposes) {
+        sensors::PointNormalCloud::Ptr tmp_cloud(new sensors::PointNormalCloud);
+        pcl::transformPointCloud(*(loop_shared_data_->cloud_history[p.index]), *tmp_cloud, p.global_pos,
+                                 Eigen::Quaterniond(p.global_rot));
+        *out_cloud += *tmp_cloud;
+    }
+    if (out_cloud->empty()) {
+        resp.status = false;
+        resp.message = "Empty cloud!";
+        return false;
+    }
+    resp.status = true;
+    resp.message = "Save Map Success!, path is " + file_path;
+    writer_.writeBinaryCompressed(file_path, *out_cloud);
+    return true;
 }
 
 void MapBuilderRos::imu_callback(const sensor_msgs::Imu& imu_message) {
@@ -248,6 +276,7 @@ void MapBuilderRos::run() {
         publishCloud(local_cloud_pub_, pcl2msg(lio_buidler_->cloudWorld(), local_frame_, current_time_));
         publishLocalPath();
         publishGlobalPath();
+        publishLoopMark();
     }
     std::cout << "map builder thread exits" << std::endl;
 }
@@ -343,6 +372,66 @@ void MapBuilderRos::publishGlobalPath() {
 
 void MapBuilderRos::publishCloud(const ros::Publisher& cloud_pub, const sensor_msgs::PointCloud2& cloud) {
     cloud_pub.publish(cloud);
+}
+
+void MapBuilderRos::publishLoopMark() {
+    if (loop_mark_pub_.getNumSubscribers() == 0) {
+        return;
+    }
+    if (loop_shared_data_->loop_history.empty()) {
+        return;
+    }
+    visualization_msgs::MarkerArray marker_array;
+    visualization_msgs::Marker nodes_marker;
+
+    nodes_marker.header.frame_id = global_frame_;
+    nodes_marker.header.stamp = ros::Time().fromSec(current_time_);
+    nodes_marker.ns = "loop_nodes";
+    nodes_marker.id = 0;
+    nodes_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    nodes_marker.action = visualization_msgs::Marker::ADD;
+    nodes_marker.pose.orientation.w = 1.0;
+    nodes_marker.scale.x = 0.3;
+    nodes_marker.scale.y = 0.3;
+    nodes_marker.scale.z = 0.3;
+    nodes_marker.color.r = 1.0;
+    nodes_marker.color.g = 0.8;
+    nodes_marker.color.b = 0.0;
+    nodes_marker.color.a = 1.0;
+
+    visualization_msgs::Marker edges_marker;
+    edges_marker.header.frame_id = global_frame_;
+    edges_marker.header.stamp = ros::Time().fromSec(current_time_);
+    edges_marker.ns = "loop_edges";
+    edges_marker.id = 1;
+    edges_marker.type = visualization_msgs::Marker::LINE_LIST;
+    edges_marker.action = visualization_msgs::Marker::ADD;
+    edges_marker.pose.orientation.w = 1.0;
+    edges_marker.scale.x = 0.1;
+
+    edges_marker.color.r = 0.0;
+    edges_marker.color.g = 0.8;
+    edges_marker.color.b = 0.0;
+    edges_marker.color.a = 1.0;
+    for (auto& p : loop_shared_data_->loop_history) {
+        Pose6D& p1 = loop_shared_data_->keyposes[p.first];
+        Pose6D& p2 = loop_shared_data_->keyposes[p.second];
+        geometry_msgs::Point point1;
+        point1.x = p1.global_pos(0);
+        point1.y = p1.global_pos(1);
+        point1.z = p1.global_pos(2);
+        geometry_msgs::Point point2;
+        point2.x = p2.global_pos(0);
+        point2.y = p2.global_pos(1);
+        point2.z = p2.global_pos(2);
+        nodes_marker.points.push_back(point1);
+        nodes_marker.points.push_back(point2);
+        edges_marker.points.push_back(point1);
+        edges_marker.points.push_back(point2);
+    }
+    marker_array.markers.push_back(nodes_marker);
+    marker_array.markers.push_back(edges_marker);
+    loop_mark_pub_.publish(marker_array);
 }
 
 }  // namespace lio

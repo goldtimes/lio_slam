@@ -1,5 +1,6 @@
 #pragma once
 #include <glog/logging.h>
+#include <lio_slam/SaveMap.h>
 #include <livox_ros_driver/CustomMsg.h>
 #include <nav_msgs/Path.h>
 #include <ros/ros.h>
@@ -28,11 +29,14 @@ class MapBuilderRos {
 
     void init_params();
     void init_sub_pub();
+    void init_service();
     void publishOdom(const nav_msgs::Odometry& odom);
     void publishLocalPath();
     void publishGlobalPath();
     void publishCloud(const ros::Publisher& cloud_pub, const sensor_msgs::PointCloud2& cloud);
     void addKeypose();
+    void publishLoopMark();
+    bool save_map_callback(lio_slam::SaveMap::Request& req, lio_slam::SaveMap::Response& resp);
 
    private:
     ros::NodeHandle& nh_;
@@ -52,8 +56,12 @@ class MapBuilderRos {
     ros::Publisher odom_pub_;
     ros::Publisher local_path_pub_;
     ros::Publisher global_path_pub_;
+    ros::Publisher loop_mark_pub_;
     nav_msgs::Path local_path_;
     nav_msgs::Path global_path_;
+    pcl::PCDWriter writer_;
+
+    ros::ServiceServer save_map_server_;
 
     // 时间同步对象
     MeasureGroup measure_group_;

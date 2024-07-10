@@ -282,6 +282,14 @@ Visualization Manager:
       Topic: /global_path
       Unreliable: false
       Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /loop_mark
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -310,7 +318,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 299.9350891113281
+      Distance: 128.4464111328125
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -318,9 +326,9 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 3.599151372909546
-        Y: -0.2909618616104126
-        Z: -8.695838928222656
+        X: -1.5331412553787231
+        Y: 16.89091682434082
+        Z: -8.697249412536621
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
@@ -328,7 +336,7 @@ Visualization Manager:
       Near Clip Distance: 0.009999999776482582
       Pitch: 1.5697963237762451
       Target Frame: body
-      Yaw: 3.408151626586914
+      Yaw: 3.3531510829925537
     Saved: ~
 Window Geometry:
   Displays:
