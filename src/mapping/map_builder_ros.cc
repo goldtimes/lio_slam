@@ -262,6 +262,7 @@ void MapBuilderRos::run() {
         current_navi_state_ = lio_buidler_->GetState();
         // 可视化发布
         // 发布tf
+        // map->odom的变换
         tf_.sendTransform(eigen2Tf(loop_shared_data_->offset_rot, loop_shared_data_->offset_trans, global_frame_,
                                    local_frame_, current_time_));
         tf_.sendTransform(
@@ -293,6 +294,7 @@ void MapBuilderRos::addKeypose() {
         return;
     }
     Pose6D& last_key_pose = loop_shared_data_->keyposes.back();
+    // 取一定距离的关键帧
     Eigen::Matrix3d diff_rot = last_key_pose.local_rot.transpose() * current_navi_state_.rot;
     Eigen::Vector3d diff_pos =
         last_key_pose.local_rot.transpose() * (current_navi_state_.pos - last_key_pose.local_pos);
@@ -304,6 +306,7 @@ void MapBuilderRos::addKeypose() {
         std::abs(rpy(2)) > loop_closure_->getLoopParams().rad_thresh) {
         std::lock_guard<std::mutex> lck(loop_shared_data_->mutex);
         loop_shared_data_->keyposes.emplace_back(idx, current_time_, current_navi_state_.rot, current_navi_state_.pos);
+        // 更新global_Pose
         loop_shared_data_->keyposes.back().addOffset(loop_shared_data_->offset_rot, loop_shared_data_->offset_trans);
         loop_shared_data_->keypose_add = true;
         loop_shared_data_->cloud_history.push_back(lio_buidler_->cloudUndistortedBody());

@@ -56,6 +56,7 @@ struct LoopParms {
 struct Pose6D {
     int index;
     double time;
+    // odom系下的坐标
     Eigen::Matrix3d local_rot;
     Eigen::Vector3d local_pos;
     Eigen::Matrix3d global_rot;
